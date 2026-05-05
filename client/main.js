@@ -11,37 +11,44 @@ let localStream = null, peer = null, dataPeers = {}, calls = {};
 let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
 let students = JSON.parse(localStorage.getItem('destiny_students') || '{}');
 
-// --- INITIALIZATION ---
+// --- THE UNSTOPPABLE START ---
 document.getElementById('start-destiny-btn').onclick = async function() {
-    this.innerText = "OPENING SECURE CHANNEL...";
+    this.innerText = "OPENING DESTINY...";
+    
+    // 1. Try to get Camera (Smart Fallback)
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localVideo.srcObject = localStream;
         await localVideo.play();
-
-        peer = new Peer();
-        peer.on('open', id => {
-            myIdDisplay.innerText = `Room ID: ${id}`;
-            document.getElementById('status-text').innerText = "Encrypted Connection Active";
-            document.getElementById('launch-screen').style.display = 'none';
-            renderStudents();
-            
-            const hash = window.location.hash.substring(1);
-            if(hash && hash !== id) connectToClass(hash);
-        });
-
-        setupPeerListeners();
     } catch (e) {
-        alert("Launch Failed: Camera access is mandatory for security.");
+        console.warn("Camera failed, trying Audio Only...");
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e2) {
+            console.error("No media devices allowed.");
+        }
     }
+
+    // 2. Start Networking (This will now run even without a camera!)
+    peer = new Peer();
+    peer.on('open', id => {
+        myIdDisplay.innerText = `Room ID: ${id}`;
+        document.getElementById('status-text').innerText = localStream ? "Live & Secure" : "Whiteboard Mode (No Cam)";
+        document.getElementById('status-dot').style.background = localStream ? "#40c057" : "#fab005";
+        document.getElementById('launch-screen').style.display = 'none';
+        renderStudents();
+        
+        const hash = window.location.hash.substring(1);
+        if(hash && hash !== id) connectToClass(hash);
+    });
+
+    setupPeerListeners();
 };
 
 function setupPeerListeners() {
     peer.on('call', call => {
         const receivedPass = call.metadata ? call.metadata.password : '';
         const roomPass = document.getElementById('room-pass').value;
-        
-        // Validation: Must match Room Pass OR an individual Student Code
         let isAuthorized = (roomPass && receivedPass === roomPass);
         let studentName = "Student";
 
@@ -59,10 +66,17 @@ function setupPeerListeners() {
         }
 
         document.getElementById('student-knock-name').innerText = studentName + " Knocking";
-        if (confirm(`Admit ${studentName} to the classroom?`)) {
-            call.answer(localStream);
+        document.getElementById('security-modal').classList.remove('hidden');
+        
+        document.getElementById('admit-btn').onclick = () => {
+            call.answer(localStream || new MediaStream());
             handleStream(call, studentName);
-        }
+            document.getElementById('security-modal').classList.add('hidden');
+        };
+        document.getElementById('deny-btn').onclick = () => {
+            call.close();
+            document.getElementById('security-modal').classList.add('hidden');
+        };
     });
 
     peer.on('connection', conn => {
@@ -75,16 +89,13 @@ function setupPeerListeners() {
 document.getElementById('gen-student-code').onclick = () => {
     const name = document.getElementById('new-student-name').value;
     if (!name) return alert("Enter Student Name");
-    
-    const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     const id = "STU-" + Math.random().toString(36).substr(2, 4).toUpperCase();
-    
     students[id] = { name, code };
     localStorage.setItem('destiny_students', JSON.stringify(students));
-    
     document.getElementById('new-student-name').value = '';
     renderStudents();
-    alert(`Invite Generated!\n\nID: ${id}\nCode: ${code}\n\nShare the Room Link + this Code with ${name}.`);
+    alert(`Invite Generated for ${name}!\nCode: ${code}`);
 };
 
 function renderStudents() {
@@ -93,13 +104,7 @@ function renderStudents() {
     for (let id in students) {
         const div = document.createElement('div');
         div.className = 'student-item';
-        div.innerHTML = `
-            <div class="student-info">
-                <span class="s-name">${students[id].name}</span>
-                <span class="s-code">Code: ${students[id].code}</span>
-            </div>
-            <button class="btn-del" onclick="deleteStudent('${id}')"><i class="fas fa-trash"></i></button>
-        `;
+        div.innerHTML = `<div class="student-info"><span class="s-name">${students[id].name}</span><span class="s-code">Code: ${students[id].code}</span></div><button class="btn-del" onclick="deleteStudent('${id}')"><i class="fas fa-trash"></i></button>`;
         list.appendChild(div);
     }
 }
@@ -113,7 +118,7 @@ window.deleteStudent = (id) => {
 // --- CONNECTIVITY ---
 function connectToClass(id) {
     const pass = document.getElementById('room-pass').value;
-    const call = peer.call(id, localStream, { metadata: { password: pass } });
+    const call = peer.call(id, localStream || new MediaStream(), { metadata: { password: pass } });
     handleStream(call, "Teacher");
     const conn = peer.connect(id);
     dataPeers[id] = conn;
@@ -142,7 +147,6 @@ function handleStream(call, name) {
             videoGrid.insertBefore(wrap, localVideo.parentElement);
         }
         vid.srcObject = stream;
-        vid.play().catch(() => {});
     });
 }
 
@@ -160,8 +164,7 @@ function handleData(data) {
 canvas.addEventListener('mousedown', e => { isDrawing = true; [lx, ly] = [e.offsetX, e.offsetY]; });
 canvas.addEventListener('mousemove', e => {
     if (!isDrawing) return;
-    const c = document.getElementById('board-color').value;
-    draw(e.offsetX, e.offsetY, lx, ly, c, tool === 'eraser', true);
+    draw(e.offsetX, e.offsetY, lx, ly, document.getElementById('board-color').value, tool === 'eraser', true);
     [lx, ly] = [e.offsetX, e.offsetY];
 });
 canvas.addEventListener('mouseup', () => isDrawing = false);
@@ -187,11 +190,13 @@ document.getElementById('board-btn').onclick = () => {
 };
 
 document.getElementById('mic-btn').onclick = function() {
+    if(!localStream) return alert("Mic not available.");
     const t = localStream.getAudioTracks()[0]; t.enabled = !t.enabled;
     this.innerHTML = t.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
 };
 
 document.getElementById('cam-btn').onclick = function() {
+    if(!localStream) return alert("Camera not available.");
     const t = localStream.getVideoTracks()[0]; t.enabled = !t.enabled;
     this.innerHTML = t.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
 };
@@ -199,10 +204,31 @@ document.getElementById('cam-btn').onclick = function() {
 document.getElementById('copy-id-btn').onclick = () => {
     const id = myIdDisplay.innerText.replace('Room ID: ', '');
     navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#${id}`);
-    alert('Room Link Copied!');
+    alert('Link Copied!');
 };
 
-// Tabs
+// PRESENTATION ENGINE
+document.getElementById('share-btn').onclick = async function() {
+    try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const track = screenStream.getVideoTracks()[0];
+        document.getElementById('status-text').innerText = "LIVE PRESENTING";
+        document.getElementById('status-dot').style.background = "#ff6b6b";
+        localVideo.srcObject = screenStream;
+
+        Object.values(calls).forEach(call => {
+            const s = call.peerConnection.getSenders().find(s => s.track.kind === 'video');
+            if(s) s.replaceTrack(track);
+        });
+
+        track.onended = () => {
+            document.getElementById('status-text').innerText = "Live & Ready";
+            document.getElementById('status-dot').style.background = "#40c057";
+            localVideo.srcObject = localStream;
+        };
+    } catch(err) {}
+};
+
 document.querySelectorAll('.nav-btn').forEach(b => {
     b.onclick = () => {
         document.querySelectorAll('.nav-btn, .tab-pane').forEach(el => el.classList.remove('active'));
@@ -213,7 +239,7 @@ document.querySelectorAll('.nav-btn').forEach(b => {
 
 document.getElementById('send-chat').onclick = () => {
     const t = chatInput.value; if (!t) return;
-    appendMsg('Me', t); broadcast({ type: 'chat', text: t }); chatInput.value = '';
+    appendMsg('You', t); broadcast({ type: 'chat', text: t }); chatInput.value = '';
 };
 function appendMsg(s, t) {
     const m = document.createElement('div'); m.className = 'chat-msg';
