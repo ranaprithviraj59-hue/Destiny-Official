@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DESTINY - Professional Virtual Academy</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="security.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Launch Overlay -->
+    <div id="launch-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0a0a0c; z-index:10000; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white;">
+        <i class="fas fa-meteor" style="font-size: 5rem; color:#4dabf7; margin-bottom:20px;"></i>
+        <h1 style="font-family:'Poppins'; letter-spacing: 5px;">DESTINY</h1>
+        <p style="color:#666; margin-bottom:30px; font-weight:300;">SECURE P2P ACADEMY ENGINE</p>
+        <button id="start-destiny-btn" style="padding:15px 50px; background:#4dabf7; border:none; color:white; border-radius:30px; font-weight:bold; cursor:pointer; font-size:1.1rem; box-shadow: 0 10px 30px rgba(77,171,247,0.3);">LAUNCH CLASSROOM</button>
+    </div>
+
+    <div class="app-glass">
+        <!-- DESTINY Top Bar -->
+        <header class="top-bar">
+            <div class="logo">
+                <i class="fas fa-meteor"></i>
+                <span>DESTINY</span>
+            </div>
+            <div class="meeting-status">
+                <span id="status-dot" class="dot"></span>
+                <span id="status-text">Encrypted Session</span>
+            </div>
+            <div class="user-info">
+                <button id="copy-id-btn" title="Share Classroom Link">
+                    <span id="my-id-display">Connecting...</span>
+                    <i class="fas fa-share-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="content-area">
+            <section class="stage">
+                <!-- Whiteboard Overlay -->
+                <div id="whiteboard-container" class="hidden">
+                    <canvas id="whiteboard"></canvas>
+                    <div class="board-controls">
+                        <div class="tool-group">
+                            <button id="tool-pen" class="board-btn active"><i class="fas fa-pencil-alt"></i></button>
+                            <button id="tool-eraser" class="board-btn"><i class="fas fa-eraser"></i></button>
+                            <input type="color" id="board-color" value="#4dabf7">
+                            <button id="clear-board" class="board-btn"><i class="fas fa-sync-alt"></i></button>
+                        </div>
+                        <div class="board-label">DESTINY Interactive Board</div>
+                    </div>
+                </div>
+
+                <div class="video-grid" id="video-grid">
+                    <div class="v-card local" id="local-wrapper">
+                        <video id="local-video" autoplay muted playsinline></video>
+                        <div class="v-label">Host (Teacher)</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Multi-Function Sidebar -->
+            <aside class="sidebar hidden" id="sidebar">
+                <nav class="side-nav">
+                    <button class="nav-btn active" data-tab="notes"><i class="fas fa-file-alt"></i></button>
+                    <button class="nav-btn" data-tab="chat"><i class="fas fa-comment"></i></button>
+                    <button class="nav-btn" data-tab="admin" id="admin-tab-trigger"><i class="fas fa-user-shield"></i></button>
+                </nav>
+
+                <!-- Notes Tab -->
+                <div class="tab-pane active" id="notes-tab">
+                    <div class="pane-header">Shared Notes</div>
+                    <textarea id="shared-notes" placeholder="Type lesson notes here..."></textarea>
+                </div>
+
+                <!-- Chat Tab -->
+                <div class="tab-pane" id="chat-tab">
+                    <div class="pane-header">Live Chat</div>
+                    <div id="chat-messages"></div>
+                    <div class="chat-input-box">
+                        <input type="text" id="chat-input" placeholder="Ask a question...">
+                        <button id="send-chat"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+
+                <!-- ADMIN PANEL TAB -->
+                <div class="tab-pane" id="admin-tab">
+                    <div class="pane-header">Teacher Dashboard</div>
+                    <div class="admin-scroll">
+                        <div class="admin-section">
+                            <h3>Invite Student</h3>
+                            <input type="text" id="new-student-name" placeholder="Student Name">
+                            <button id="gen-student-code" class="btn-primary">Generate Invite</button>
+                        </div>
+                        <div class="admin-section">
+                            <h3>Managed Students</h3>
+                            <div id="student-list">
+                                <!-- Student list will appear here -->
+                                <p style="color:#666; font-size: 0.8rem;">No students added yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Controller -->
+        <footer class="footer-bar">
+            <div class="group join-box">
+                <input type="password" id="room-pass" placeholder="Secret Key">
+                <input type="text" id="remote-id-input" placeholder="Join ID">
+                <button id="call-btn" class="btn-join">Join</button>
+            </div>
+
+            <div class="group center-controls">
+                <button id="mic-btn" class="ctrl-btn active"><i class="fas fa-microphone"></i></button>
+                <button id="cam-btn" class="ctrl-btn active"><i class="fas fa-video"></i></button>
+                <button id="share-btn" class="ctrl-btn"><i class="fas fa-desktop"></i></button>
+                <button id="board-btn" class="ctrl-btn"><i class="fas fa-chalkboard"></i></button>
+                <button id="sidebar-btn" class="ctrl-btn"><i class="fas fa-th-large"></i></button>
+                <button id="record-btn" class="ctrl-btn"><i class="fas fa-record-vinyl"></i></button>
+                <button id="end-btn" class="ctrl-btn leave"><i class="fas fa-phone-slash"></i></button>
+            </div>
+        </footer>
+
+        <!-- Security Modal -->
+        <div id="security-modal" class="modal hidden">
+            <div class="modal-blur">
+                <div class="modal-box">
+                    <div class="shield-icon"><i class="fas fa-user-lock"></i></div>
+                    <h2 id="student-knock-name">Student Knocking</h2>
+                    <p>Wants to join the session. Admit them?</p>
+                    <div class="modal-btns">
+                        <button id="admit-btn" class="btn-primary">Grant Entry</button>
+                        <button id="deny-btn" class="btn-secondary">Block</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>
