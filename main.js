@@ -21,13 +21,17 @@ document.getElementById('start-destiny-btn').onclick = async function() {
         stream.getTracks().forEach(track => track.stop());
     } catch (err) {
         console.error("Media error:", err);
-        alert("CRITICAL: Camera/Mic permission is required. Please allow access in your browser.");
+        alert("CRITICAL: Camera/Mic permission is required.");
         this.innerText = "LAUNCH CLASSROOM";
         return;
     }
 
-    const roomId = 'DESTINY-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+    // Detect if we are joining an existing room from URL
+    const hashId = window.location.hash.substring(1);
+    const roomId = hashId || 'DESTINY-' + Math.random().toString(36).substr(2, 8).toUpperCase();
     
+    if (!hashId) window.location.hash = roomId; // Update URL for teacher
+
     // 2. Initialize Jitsi IMMEDIATELY
     try {
         const domain = 'meet.jit.si';
@@ -57,7 +61,7 @@ document.getElementById('start-destiny-btn').onclick = async function() {
         
     } catch (jitsiErr) {
         console.error("Jitsi Load Error:", jitsiErr);
-        alert("Failed to load Video Engine. Please check your internet.");
+        alert("Failed to load Video Engine.");
         this.innerText = "LAUNCH CLASSROOM";
         return;
     }
@@ -71,6 +75,15 @@ document.getElementById('start-destiny-btn').onclick = async function() {
     peer.on('error', err => console.warn("PeerJS Background Error:", err));
 
     setupPeerListeners();
+};
+
+// Check for Auto-Join on Page Load (If Student clicks link)
+window.onload = () => {
+    const hashId = window.location.hash.substring(1);
+    if (hashId) {
+        document.getElementById('remote-id-input').value = hashId;
+        document.getElementById('start-destiny-btn').innerText = "JOIN CLASSROOM";
+    }
 };
 
 function setupPeerListeners() {
@@ -145,11 +158,10 @@ function connectToClass(id) {
         jitsiApi = new JitsiMeetExternalAPI(domain, options);
         document.getElementById('launch-screen').style.display = 'none';
         document.getElementById('status-text').innerText = "Joined Class";
-        document.getElementById('status-dot').style.background = "#40c057";
     }
 
     // 2. Connect PeerJS for Tools Sync
-    if (!peer) peer = new Peer(); // Students use random ID to connect to teacher
+    if (!peer) peer = new Peer(); 
     
     peer.on('open', () => {
         const conn = peer.connect(id);
@@ -234,9 +246,9 @@ document.getElementById('end-btn').onclick = () => {
 };
 
 document.getElementById('copy-id-btn').onclick = () => {
-    const id = myIdDisplay.innerText.replace('Room ID: ', '');
-    navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#${id}`);
-    alert('Link Copied!');
+    const url = window.location.href; 
+    navigator.clipboard.writeText(url);
+    alert('Classroom Link Copied! Send this to students.');
 };
 
 document.querySelectorAll('.nav-btn').forEach(b => {
