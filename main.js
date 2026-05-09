@@ -15,55 +15,60 @@ let jitsiApi = null;
 document.getElementById('start-destiny-btn').onclick = async function() {
     this.innerText = "SECURING SESSION...";
     
-    // 1. Force Camera/Mic Permission Check (Fixes Vercel/Mobile issues)
+    // 1. Force Camera/Mic Permission Check
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        stream.getTracks().forEach(track => track.stop()); // Close it immediately, we just needed permission
+        stream.getTracks().forEach(track => track.stop());
     } catch (err) {
-        alert("CRITICAL: Camera/Mic permission is required for the classroom. Please allow access in your browser settings.");
+        console.error("Media error:", err);
+        alert("CRITICAL: Camera/Mic permission is required. Please allow access in your browser.");
         this.innerText = "LAUNCH CLASSROOM";
         return;
     }
 
-    const roomId = 'DESTINY-SECURE-' + Math.random().toString(36).substr(2, 10).toUpperCase();
+    const roomId = 'DESTINY-' + Math.random().toString(36).substr(2, 8).toUpperCase();
     
-    // 2. Initialize Jitsi with Max Security
-    const domain = 'meet.jit.si';
-    const options = {
-        roomName: roomId,
-        width: '100%',
-        height: '100%',
-        parentNode: document.getElementById('video-grid'),
-        configOverwrite: {
-            startWithAudioMuted: false,
-            disableDeepLinking: true,
-            prejoinPageEnabled: false,
-            enableWelcomePage: false,
-            e2eeLabels: {
-                label: 'End-to-End Encrypted'
+    // 2. Initialize Jitsi IMMEDIATELY
+    try {
+        const domain = 'meet.jit.si';
+        const options = {
+            roomName: roomId,
+            width: '100%',
+            height: '100%',
+            parentNode: document.getElementById('video-grid'),
+            configOverwrite: {
+                startWithAudioMuted: false,
+                disableDeepLinking: true,
+                prejoinPageEnabled: false,
+                enableWelcomePage: false
             },
-            p2p: { enabled: true } // Prefer P2P for 1-on-1 to keep it off servers
-        },
-        interfaceConfigOverwrite: {
-            TOOLBAR_BUTTONS: [],
-            SETTINGS_SECTIONS: [],
-            VIDEO_LAYOUT_FIT: 'both',
-            SHOW_JITSI_WATERMARK: false,
-            GENERATE_ROOMNAMES_ON_WELCOME_PAGE: false
-        }
-    };
-    jitsiApi = new JitsiMeetExternalAPI(domain, options);
+            interfaceConfigOverwrite: {
+                TOOLBAR_BUTTONS: [],
+                SETTINGS_SECTIONS: [],
+                VIDEO_LAYOUT_FIT: 'both',
+                SHOW_JITSI_WATERMARK: false
+            }
+        };
+        jitsiApi = new JitsiMeetExternalAPI(domain, options);
+        
+        // Hide launch screen once Jitsi starts loading
+        document.getElementById('launch-screen').style.display = 'none';
+        document.getElementById('status-text').innerText = "Live & Secure";
+        
+    } catch (jitsiErr) {
+        console.error("Jitsi Load Error:", jitsiErr);
+        alert("Failed to load Video Engine. Please check your internet.");
+        this.innerText = "LAUNCH CLASSROOM";
+        return;
+    }
 
-    // 2. Start Networking (Keep PeerJS for Whiteboard/Notes sync for now)
+    // 3. Start Networking for Tools (Background)
     peer = new Peer(roomId);
-    
     peer.on('open', id => {
         myIdDisplay.innerText = `Room ID: ${id}`;
-        document.getElementById('status-text').innerText = "Live & Secure";
-        document.getElementById('status-dot').style.background = "#40c057";
-        document.getElementById('launch-screen').style.display = 'none';
         renderStudents();
     });
+    peer.on('error', err => console.warn("PeerJS Background Error:", err));
 
     setupPeerListeners();
 };
