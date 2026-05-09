@@ -11,6 +11,7 @@ let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
 let students = JSON.parse(localStorage.getItem('destiny_students') || '{}');
 let jitsiApi = null;
 let currentRole = 'student'; 
+let pendingStudents = {};
 
 const ADMIN_PASSWORD = "DESTINY-PRO-2026"; 
 
@@ -37,14 +38,13 @@ document.getElementById('start-destiny-btn').onclick = async function() {
         }
     }
 
-    this.innerText = "SECURING SESSION...";
+    this.innerText = "OPENING DESTINY...";
     
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getTracks().forEach(track => track.stop());
     } catch (err) {
         alert("CRITICAL: Camera/Mic permission required.");
-        this.innerText = "LAUNCH CLASSROOM";
         return;
     }
 
@@ -52,132 +52,92 @@ document.getElementById('start-destiny-btn').onclick = async function() {
     const roomId = hashId || 'DESTINY-' + Math.random().toString(36).substr(2, 8).toUpperCase();
     if (!hashId) window.location.hash = roomId;
 
-    try {
-        const domain = 'meet.jit.si';
-        const options = {
-            roomName: roomId,
-            width: '100%',
-            height: '100%',
-            parentNode: document.getElementById('video-grid'),
-            configOverwrite: { 
-                prejoinPageEnabled: false, 
-                disableDeepLinking: true,
-                remoteVideoMenu: { disableKick: (currentRole === 'student') },
-                enableLobbyChat: false
-            },
-            interfaceConfigOverwrite: { TOOLBAR_BUTTONS: [], SHOW_PROMOTIONAL_CLOSE_PAGE: false }
-        };
-        jitsiApi = new JitsiMeetExternalAPI(domain, options);
-        document.getElementById('launch-screen').style.display = 'none';
-        
-        if (currentRole === 'student') {
-            document.getElementById('admin-tab-trigger').classList.add('hidden');
-            document.getElementById('copy-id-btn').style.display = 'none';
-            // Listen for teacher commands
-            jitsiApi.addEventListener('endpointTextMessageReceived', (event) => {
-                const data = JSON.parse(event.data.text);
-                if (data.type === 'mute-force') jitsiApi.executeCommand('muteEveryone');
-            });
-        }
-
-    } catch (e) { alert("Video Engine Error."); return; }
-
-    peer = new Peer(currentRole === 'teacher' ? roomId : undefined);
-    peer.on('open', id => {
-        myIdDisplay.innerText = `Room ID: ${id}`;
-        if (currentRole === 'student') connectToClass(roomId);
-        renderStudents();
-    });
-    setupPeerListeners();
-};
-
-window.onload = () => {
-    const hashId = window.location.hash.substring(1);
-    if (hashId) {
-        document.getElementById('select-student-btn').click();
-        document.getElementById('start-destiny-btn').innerText = "JOIN CLASSROOM";
+    if (currentRole === 'teacher') {
+        startJitsi(roomId);
+        startPeer(roomId);
+    } else {
+        // Student waits for "Admit"
+        this.innerText = "WAITING FOR TEACHER...";
+        startPeer(); // Random ID for student
+        setTimeout(() => connectToTeacher(roomId), 1000);
     }
 };
+
+function startJitsi(id) {
+    const domain = 'meet.jit.si';
+    const options = {
+        roomName: id,
+        width: '100%',
+        height: '100%',
+        parentNode: document.getElementById('video-grid'),
+        configOverwrite: { prejoinPageEnabled: false, disableDeepLinking: true },
+        interfaceConfigOverwrite: { TOOLBAR_BUTTONS: [] }
+    };
+    jitsiApi = new JitsiMeetExternalAPI(domain, options);
+    document.getElementById('launch-screen').style.display = 'none';
+}
+
+function startPeer(id) {
+    peer = new Peer(id);
+    peer.on('open', rid => {
+        myIdDisplay.innerText = `Room ID: ${rid}`;
+        setupPeerListeners();
+    });
+}
 
 function setupPeerListeners() {
     peer.on('connection', conn => {
         dataPeers[conn.peer] = conn;
-        conn.on('data', data => handleData(data));
-        conn.on('open', () => {
-            if (currentRole === 'teacher') conn.send({ type: 'notes', text: sharedNotes.value });
+        conn.on('data', data => {
+            if (data.type === 'knock') {
+                handleKnock(conn.peer, data.name);
+            }
+            handleData(data);
         });
     });
 }
 
-// --- TEACHER MODERATION ---
-document.getElementById('mute-all-btn').onclick = () => {
-    if (currentRole !== 'teacher' || !jitsiApi) return;
-    jitsiApi.executeCommand('muteEveryone');
-    broadcast({ type: 'force-mute-ui' }); // Sync UI if needed
-    alert("All students muted.");
-};
-
-document.getElementById('gen-student-code').onclick = () => {
-    const name = document.getElementById('new-student-name').value;
-    if (!name) return alert("Enter Student Name");
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const id = "STU-" + Math.random().toString(36).substr(2, 4).toUpperCase();
-    students[id] = { name, code };
-    localStorage.setItem('destiny_students', JSON.stringify(students));
-    document.getElementById('new-student-name').value = '';
-    renderStudents();
-};
-
-function renderStudents() {
-    const list = document.getElementById('student-list');
-    list.innerHTML = '';
-    for (let id in students) {
-        const div = document.createElement('div');
-        div.className = 'student-item';
-        div.innerHTML = `
-            <div class="student-info">
-                <span class="s-name">${students[id].name}</span>
-                <span class="s-code">Code: ${students[id].code}</span>
-            </div>
-            <div class="student-item-btns">
-                <button class="btn-copy-mini" onclick="copyInvite('${students[id].code}')"><i class="fas fa-copy"></i></button>
-                <button class="btn-del" onclick="deleteStudent('${id}')"><i class="fas fa-trash"></i></button>
-            </div>
-        `;
-        list.appendChild(div);
-    }
+function handleKnock(id, name) {
+    pendingStudents[id] = { name };
+    document.getElementById('student-knock-name').innerText = name + " is knocking...";
+    document.getElementById('security-modal').classList.remove('hidden');
+    
+    document.getElementById('admit-btn').onclick = () => {
+        dataPeers[id].send({ type: 'admit', roomId: window.location.hash.substring(1) });
+        document.getElementById('security-modal').classList.add('hidden');
+        delete pendingStudents[id];
+    };
+    
+    document.getElementById('deny-btn').onclick = () => {
+        dataPeers[id].send({ type: 'deny' });
+        document.getElementById('security-modal').classList.add('hidden');
+        delete pendingStudents[id];
+    };
 }
 
-window.copyInvite = (code) => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(`Join my DESTINY Classroom!\nLink: ${url}\nAccess Code: ${code}`);
-    alert('Invite Copied!');
-};
-
-window.deleteStudent = (id) => {
-    delete students[id];
-    localStorage.setItem('destiny_students', JSON.stringify(students));
-    renderStudents();
-};
-
-function connectToClass(id) {
+function connectToTeacher(id) {
+    const name = prompt("Enter your name to join:") || "Guest Student";
     const conn = peer.connect(id);
     dataPeers[id] = conn;
-    conn.on('data', data => handleData(data));
+    conn.on('open', () => {
+        conn.send({ type: 'knock', name: name });
+    });
+    conn.on('data', data => {
+        if (data.type === 'admit') {
+            startJitsi(data.roomId);
+        } else if (data.type === 'deny') {
+            alert("The Teacher denied your entry.");
+            window.location.reload();
+        } else {
+            handleData(data);
+        }
+    });
 }
 
-document.getElementById('call-btn').onclick = () => {
-    const id = document.getElementById('remote-id-input').value;
-    if (id) connectToClass(id);
-};
-
-function broadcast(data) { 
+// --- TOOLS & BROADCAST ---
+function broadcast(data) {
     Object.values(dataPeers).forEach(p => p.open && p.send(data));
 }
-
-sharedNotes.addEventListener('input', () => {
-    broadcast({ type: 'notes', text: sharedNotes.value });
-});
 
 function handleData(data) {
     if (data.type === 'draw') draw(data.x, data.y, data.lx, data.ly, data.color, data.isE, false);
@@ -214,33 +174,13 @@ document.getElementById('board-btn').onclick = () => {
     if (!h) { canvas.width = canvas.parentElement.offsetWidth; canvas.height = canvas.parentElement.offsetHeight; ctx.lineCap = 'round'; }
 };
 
-document.getElementById('mic-btn').onclick = function() {
-    if(!jitsiApi) return;
-    jitsiApi.executeCommand('toggleAudio');
-    this.classList.toggle('active');
-};
-
-document.getElementById('cam-btn').onclick = function() {
-    if(!jitsiApi) return;
-    jitsiApi.executeCommand('toggleVideo');
-    this.classList.toggle('active');
-};
-
-document.getElementById('share-btn').onclick = function() {
-    if(!jitsiApi) return;
-    jitsiApi.executeCommand('toggleShareScreen');
-};
-
-document.getElementById('end-btn').onclick = () => {
-    if (confirm("End session?")) {
-        if(jitsiApi) jitsiApi.dispose();
-        window.location.reload();
-    }
-};
+document.getElementById('mic-btn').onclick = () => jitsiApi && jitsiApi.executeCommand('toggleAudio');
+document.getElementById('cam-btn').onclick = () => jitsiApi && jitsiApi.executeCommand('toggleVideo');
+document.getElementById('share-btn').onclick = () => jitsiApi && jitsiApi.executeCommand('toggleShareScreen');
+document.getElementById('end-btn').onclick = () => confirm("End session?") && window.location.reload();
 
 document.getElementById('copy-id-btn').onclick = () => {
-    const url = window.location.href; 
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(window.location.href);
     alert('Link Copied!');
 };
 
@@ -256,6 +196,7 @@ document.getElementById('send-chat').onclick = () => {
     const t = chatInput.value; if (!t) return;
     appendMsg('You', t); broadcast({ type: 'chat', text: t }); chatInput.value = '';
 };
+
 function appendMsg(s, t) {
     const m = document.createElement('div'); m.className = 'chat-msg';
     m.innerHTML = `<span class="sender">${s}</span><span class="text">${t}</span>`;
