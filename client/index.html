@@ -6,6 +6,7 @@
     <title>DESTINY - Professional Virtual Academy</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="security.css">
+    <script src="https://meet.jit.si/external_api.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -92,13 +93,21 @@
                     <div class="admin-scroll">
                         <div class="admin-section">
                             <h3>Invite Student</h3>
-                            <input type="text" id="new-student-name" placeholder="Student Name">
-                            <button id="gen-student-code" class="btn-primary">Generate Invite</button>
+                            <div class="admin-input-group">
+                                <input type="text" id="new-student-name" placeholder="Student Name">
+                                <button id="gen-student-code" class="btn-primary">Generate</button>
+                            </div>
+                            <p class="admin-hint">Generates a unique 6-digit access code.</p>
+                        </div>
+                        <div class="admin-section">
+                            <h3>Waiting Room</h3>
+                            <div id="waiting-room-list">
+                                <p style="color:#666; font-size: 0.8rem;">No one is knocking currently.</p>
+                            </div>
                         </div>
                         <div class="admin-section">
                             <h3>Managed Students</h3>
                             <div id="student-list">
-                                <!-- Student list will appear here -->
                                 <p style="color:#666; font-size: 0.8rem;">No students added yet.</p>
                             </div>
                         </div>

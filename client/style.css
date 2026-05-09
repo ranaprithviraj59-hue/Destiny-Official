@@ -168,13 +168,76 @@ video { width: 100%; height: 100%; object-fit: cover; background: #000; }
 .admin-scroll { flex: 1; overflow-y: auto; padding: 5px; }
 .admin-section { background: rgba(255,255,255,0.03); border: 1px solid var(--glass); border-radius: 12px; padding: 15px; margin-bottom: 15px; }
 .admin-section h3 { font-size: 0.85rem; margin-top: 0; color: var(--primary); text-transform: uppercase; }
-.admin-section input { width: 100%; background: #000; border: 1px solid var(--glass); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+.admin-input-group { display: flex; gap: 8px; margin-bottom: 10px; }
+.admin-input-group input { margin-bottom: 0 !important; flex: 1; }
+.admin-input-group button { padding: 0 15px; border-radius: 8px; font-size: 0.8rem; }
+.admin-hint { font-size: 0.7rem; color: var(--text-dim); margin: 0; }
+
+.waiting-item {
+    background: rgba(77, 171, 247, 0.1); border: 1px solid rgba(77, 171, 247, 0.2);
+    padding: 12px; border-radius: 10px; margin-bottom: 8px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.waiting-name { font-weight: 600; font-size: 0.9rem; }
+.waiting-actions { display: flex; gap: 8px; }
+.waiting-actions button { flex: 1; padding: 6px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; border: none; font-weight: 600; }
+.btn-admit { background: var(--primary); color: white; }
+.btn-deny { background: rgba(255,255,255,0.05); color: var(--text-dim); border: 1px solid var(--glass); }
 
 #student-list { display: flex; flex-direction: column; gap: 10px; }
 .student-item { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px solid var(--glass); display: flex; justify-content: space-between; align-items: center; }
-.student-info { display: flex; flex-direction: column; gap: 2px; }
-.s-name { font-size: 0.9rem; font-weight: 600; }
-.s-code { font-size: 0.7rem; color: #4dabf7; font-family: monospace; }
+.student-item-btns { display: flex; gap: 8px; }
+.btn-copy-mini { background: var(--glass); border: 1px solid var(--glass); color: var(--primary); padding: 5px 8px; border-radius: 4px; cursor: pointer; }
 .btn-del { background: transparent; border: none; color: #ff6b6b; cursor: pointer; padding: 5px; }
 
 .hidden { display: none !important; }
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .top-bar { padding: 0 15px; }
+    .logo span { display: none; }
+    #my-id-display { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .footer-bar {
+        height: auto;
+        padding: 15px;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .join-box { width: 100%; justify-content: center; }
+    .join-box input { width: 40%; }
+    
+    .center-controls {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .ctrl-btn { width: 45px; height: 45px; margin: 0; }
+
+    .sidebar {
+        position: fixed;
+        top: 60px;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        z-index: 100;
+    }
+    .sidebar.hidden { margin-right: -100%; }
+
+    .local {
+        width: 120px;
+        height: 68px;
+        bottom: 120px;
+        right: 15px;
+    }
+    
+    #whiteboard-container { border-radius: 0; }
+    .board-controls { 
+        top: 10px; left: 10px; right: 10px; 
+        padding: 5px 15px; gap: 10px;
+        justify-content: center;
+    }
+}

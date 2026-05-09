@@ -1,4 +1,3 @@
-const localVideo = document.getElementById('local-video');
 const videoGrid = document.getElementById('video-grid');
 const myIdDisplay = document.getElementById('my-id-display');
 const sharedNotes = document.getElementById('shared-notes');
@@ -7,81 +6,60 @@ const chatInput = document.getElementById('chat-input');
 const canvas = document.getElementById('whiteboard');
 const ctx = canvas.getContext('2d');
 
-let localStream = null, peer = null, dataPeers = {}, calls = {};
+let peer = null, dataPeers = {}, calls = {};
 let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
 let students = JSON.parse(localStorage.getItem('destiny_students') || '{}');
+let jitsiApi = null;
 
 // --- THE UNSTOPPABLE START ---
 document.getElementById('start-destiny-btn').onclick = async function() {
     this.innerText = "OPENING DESTINY...";
     
-    // 1. Try to get Camera (Smart Fallback)
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localVideo.srcObject = localStream;
-        await localVideo.play();
-    } catch (e) {
-        console.warn("Camera failed, trying Audio Only...");
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (e2) {
-            console.error("No media devices allowed.");
+    const roomId = 'DESTINY-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    
+    // 1. Initialize Jitsi
+    const domain = 'meet.jit.si';
+    const options = {
+        roomName: roomId,
+        width: '100%',
+        height: '100%',
+        parentNode: document.getElementById('video-grid'),
+        configOverwrite: {
+            startWithAudioMuted: false,
+            disableDeepLinking: true,
+            prejoinPageEnabled: false,
+            enableWelcomePage: false
+        },
+        interfaceConfigOverwrite: {
+            TOOLBAR_BUTTONS: [], // Hide default toolbar to use our own
+            SETTINGS_SECTIONS: [],
+            VIDEO_LAYOUT_FIT: 'both',
+            SHOW_JITSI_WATERMARK: false
         }
-    }
+    };
+    jitsiApi = new JitsiMeetExternalAPI(domain, options);
 
-    // 2. Start Networking (This will now run even without a camera!)
-    peer = new Peer();
+    // 2. Start Networking (Keep PeerJS for Whiteboard/Notes sync for now)
+    peer = new Peer(roomId);
+    
     peer.on('open', id => {
         myIdDisplay.innerText = `Room ID: ${id}`;
-        document.getElementById('status-text').innerText = localStream ? "Live & Secure" : "Whiteboard Mode (No Cam)";
-        document.getElementById('status-dot').style.background = localStream ? "#40c057" : "#fab005";
+        document.getElementById('status-text').innerText = "Live & Secure";
+        document.getElementById('status-dot').style.background = "#40c057";
         document.getElementById('launch-screen').style.display = 'none';
         renderStudents();
-        
-        const hash = window.location.hash.substring(1);
-        if(hash && hash !== id) connectToClass(hash);
     });
 
     setupPeerListeners();
 };
 
 function setupPeerListeners() {
-    peer.on('call', call => {
-        const receivedPass = call.metadata ? call.metadata.password : '';
-        const roomPass = document.getElementById('room-pass').value;
-        let isAuthorized = (roomPass && receivedPass === roomPass);
-        let studentName = "Student";
-
-        for (let sId in students) {
-            if (students[sId].code === receivedPass) {
-                isAuthorized = true;
-                studentName = students[sId].name;
-                break;
-            }
-        }
-
-        if (!isAuthorized) {
-            alert("Blocked unauthorized entry attempt.");
-            call.answer(); call.close(); return;
-        }
-
-        document.getElementById('student-knock-name').innerText = studentName + " Knocking";
-        document.getElementById('security-modal').classList.remove('hidden');
-        
-        document.getElementById('admit-btn').onclick = () => {
-            call.answer(localStream || new MediaStream());
-            handleStream(call, studentName);
-            document.getElementById('security-modal').classList.add('hidden');
-        };
-        document.getElementById('deny-btn').onclick = () => {
-            call.close();
-            document.getElementById('security-modal').classList.add('hidden');
-        };
-    });
-
     peer.on('connection', conn => {
         dataPeers[conn.peer] = conn;
         conn.on('data', data => handleData(data));
+        conn.on('open', () => {
+            conn.send({ type: 'notes', text: sharedNotes.value });
+        });
     });
 }
 
@@ -104,10 +82,26 @@ function renderStudents() {
     for (let id in students) {
         const div = document.createElement('div');
         div.className = 'student-item';
-        div.innerHTML = `<div class="student-info"><span class="s-name">${students[id].name}</span><span class="s-code">Code: ${students[id].code}</span></div><button class="btn-del" onclick="deleteStudent('${id}')"><i class="fas fa-trash"></i></button>`;
+        div.innerHTML = `
+            <div class="student-info">
+                <span class="s-name">${students[id].name}</span>
+                <span class="s-code">Code: ${students[id].code}</span>
+            </div>
+            <div class="student-item-btns">
+                <button class="btn-copy-mini" onclick="copyInvite('${students[id].code}')" title="Copy Access Code"><i class="fas fa-copy"></i></button>
+                <button class="btn-del" onclick="deleteStudent('${id}')"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
         list.appendChild(div);
     }
 }
+
+window.copyInvite = (code) => {
+    const id = myIdDisplay.innerText.replace('Room ID: ', '');
+    const url = `${window.location.origin}${window.location.pathname}#${id}`;
+    navigator.clipboard.writeText(`Join my DESTINY Classroom!\nLink: ${url}\nAccess Code: ${code}`);
+    alert('Full Invite Copied to Clipboard!');
+};
 
 window.deleteStudent = (id) => {
     delete students[id];
@@ -115,14 +109,36 @@ window.deleteStudent = (id) => {
     renderStudents();
 };
 
-// --- CONNECTIVITY ---
+// --- CONNECTIVITY (For Tools Sync & Video Join) ---
 function connectToClass(id) {
-    const pass = document.getElementById('room-pass').value;
-    const call = peer.call(id, localStream || new MediaStream(), { metadata: { password: pass } });
-    handleStream(call, "Teacher");
-    const conn = peer.connect(id);
-    dataPeers[id] = conn;
-    conn.on('data', data => handleData(data));
+    // 1. Join Jitsi Room
+    if (!jitsiApi) {
+        const domain = 'meet.jit.si';
+        const options = {
+            roomName: id,
+            width: '100%',
+            height: '100%',
+            parentNode: document.getElementById('video-grid'),
+            configOverwrite: { prejoinPageEnabled: false },
+            interfaceConfigOverwrite: { TOOLBAR_BUTTONS: [] }
+        };
+        jitsiApi = new JitsiMeetExternalAPI(domain, options);
+        document.getElementById('launch-screen').style.display = 'none';
+        document.getElementById('status-text').innerText = "Joined Class";
+        document.getElementById('status-dot').style.background = "#40c057";
+    }
+
+    // 2. Connect PeerJS for Tools Sync
+    if (!peer) peer = new Peer(); // Students use random ID to connect to teacher
+    
+    peer.on('open', () => {
+        const conn = peer.connect(id);
+        dataPeers[id] = conn;
+        conn.on('data', data => handleData(data));
+        conn.on('open', () => {
+            appendMsg('System', 'Connected to Teacher for Tools Sync.');
+        });
+    });
 }
 
 document.getElementById('call-btn').onclick = () => {
@@ -130,28 +146,12 @@ document.getElementById('call-btn').onclick = () => {
     if (id) connectToClass(id);
 };
 
-function handleStream(call, name) {
-    calls[call.peer] = call;
-    call.on('stream', stream => {
-        let vid = document.getElementById(`vid-${call.peer}`);
-        if (!vid) {
-            const wrap = document.createElement('div');
-            wrap.className = 'v-card remote';
-            wrap.id = `wrap-${call.peer}`;
-            vid = document.createElement('video');
-            vid.id = `vid-${call.peer}`;
-            vid.autoplay = true; vid.playsInline = true;
-            const label = document.createElement('div');
-            label.className = 'v-label'; label.innerText = name;
-            wrap.appendChild(vid); wrap.appendChild(label);
-            videoGrid.insertBefore(wrap, localVideo.parentElement);
-        }
-        vid.srcObject = stream;
-    });
-}
-
 // --- TOOLS LOGIC ---
 function broadcast(data) { Object.values(dataPeers).forEach(p => p.open && p.send(data)); }
+
+sharedNotes.addEventListener('input', () => {
+    broadcast({ type: 'notes', text: sharedNotes.value });
+});
 
 function handleData(data) {
     if (data.type === 'draw') draw(data.x, data.y, data.lx, data.ly, data.color, data.isE, false);
@@ -190,43 +190,33 @@ document.getElementById('board-btn').onclick = () => {
 };
 
 document.getElementById('mic-btn').onclick = function() {
-    if(!localStream) return alert("Mic not available.");
-    const t = localStream.getAudioTracks()[0]; t.enabled = !t.enabled;
-    this.innerHTML = t.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+    if(!jitsiApi) return;
+    jitsiApi.executeCommand('toggleAudio');
+    this.classList.toggle('active');
 };
 
 document.getElementById('cam-btn').onclick = function() {
-    if(!localStream) return alert("Camera not available.");
-    const t = localStream.getVideoTracks()[0]; t.enabled = !t.enabled;
-    this.innerHTML = t.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+    if(!jitsiApi) return;
+    jitsiApi.executeCommand('toggleVideo');
+    this.classList.toggle('active');
+};
+
+document.getElementById('share-btn').onclick = function() {
+    if(!jitsiApi) return;
+    jitsiApi.executeCommand('toggleShareScreen');
+};
+
+document.getElementById('end-btn').onclick = () => {
+    if (confirm("End this classroom session?")) {
+        if(jitsiApi) jitsiApi.dispose();
+        window.location.reload();
+    }
 };
 
 document.getElementById('copy-id-btn').onclick = () => {
     const id = myIdDisplay.innerText.replace('Room ID: ', '');
     navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#${id}`);
     alert('Link Copied!');
-};
-
-// PRESENTATION ENGINE
-document.getElementById('share-btn').onclick = async function() {
-    try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const track = screenStream.getVideoTracks()[0];
-        document.getElementById('status-text').innerText = "LIVE PRESENTING";
-        document.getElementById('status-dot').style.background = "#ff6b6b";
-        localVideo.srcObject = screenStream;
-
-        Object.values(calls).forEach(call => {
-            const s = call.peerConnection.getSenders().find(s => s.track.kind === 'video');
-            if(s) s.replaceTrack(track);
-        });
-
-        track.onended = () => {
-            document.getElementById('status-text').innerText = "Live & Ready";
-            document.getElementById('status-dot').style.background = "#40c057";
-            localVideo.srcObject = localStream;
-        };
-    } catch(err) {}
 };
 
 document.querySelectorAll('.nav-btn').forEach(b => {
