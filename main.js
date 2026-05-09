@@ -13,11 +13,21 @@ let jitsiApi = null;
 
 // --- THE UNSTOPPABLE START ---
 document.getElementById('start-destiny-btn').onclick = async function() {
-    this.innerText = "OPENING DESTINY...";
+    this.innerText = "SECURING SESSION...";
     
-    const roomId = 'DESTINY-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    // 1. Force Camera/Mic Permission Check (Fixes Vercel/Mobile issues)
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream.getTracks().forEach(track => track.stop()); // Close it immediately, we just needed permission
+    } catch (err) {
+        alert("CRITICAL: Camera/Mic permission is required for the classroom. Please allow access in your browser settings.");
+        this.innerText = "LAUNCH CLASSROOM";
+        return;
+    }
+
+    const roomId = 'DESTINY-SECURE-' + Math.random().toString(36).substr(2, 10).toUpperCase();
     
-    // 1. Initialize Jitsi
+    // 2. Initialize Jitsi with Max Security
     const domain = 'meet.jit.si';
     const options = {
         roomName: roomId,
@@ -28,13 +38,18 @@ document.getElementById('start-destiny-btn').onclick = async function() {
             startWithAudioMuted: false,
             disableDeepLinking: true,
             prejoinPageEnabled: false,
-            enableWelcomePage: false
+            enableWelcomePage: false,
+            e2eeLabels: {
+                label: 'End-to-End Encrypted'
+            },
+            p2p: { enabled: true } // Prefer P2P for 1-on-1 to keep it off servers
         },
         interfaceConfigOverwrite: {
-            TOOLBAR_BUTTONS: [], // Hide default toolbar to use our own
+            TOOLBAR_BUTTONS: [],
             SETTINGS_SECTIONS: [],
             VIDEO_LAYOUT_FIT: 'both',
-            SHOW_JITSI_WATERMARK: false
+            SHOW_JITSI_WATERMARK: false,
+            GENERATE_ROOMNAMES_ON_WELCOME_PAGE: false
         }
     };
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
