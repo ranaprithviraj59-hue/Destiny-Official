@@ -23,29 +23,29 @@ if (Object.keys(students).length === 0) {
 let jitsiApi = null;
 let currentRole = 'student'; 
 let pendingStudents = {};
-let myStudentName = "";
 
 const ADMIN_PASSWORD = "DESTINY-PRO-2026"; 
 
 // --- ROLE SELECTION ---
 document.getElementById('select-teacher-btn').onclick = function() {
     currentRole = 'teacher';
-    this.style.border = '1px solid #4dabf7';
-    document.getElementById('select-student-btn').style.border = '1px solid #333';
+    this.classList.add('active');
+    document.getElementById('select-student-btn').classList.remove('active');
     document.getElementById('teacher-login-box').classList.remove('hidden');
     document.getElementById('student-login-box').classList.add('hidden');
 };
 
 document.getElementById('select-student-btn').onclick = function() {
     currentRole = 'student';
-    this.style.border = '1px solid #4dabf7';
-    document.getElementById('select-teacher-btn').style.border = '1px solid #333';
+    this.classList.add('active');
+    document.getElementById('select-teacher-btn').classList.remove('active');
     document.getElementById('student-login-box').classList.remove('hidden');
     document.getElementById('teacher-login-box').classList.add('hidden');
 };
 
 // --- THE UNSTOPPABLE START ---
 document.getElementById('start-destiny-btn').onclick = async function() {
+    const btn = this;
     if (currentRole === 'teacher') {
         if (document.getElementById('admin-pass-input').value !== ADMIN_PASSWORD) {
             return alert("INCORRECT ADMIN PASSWORD.");
@@ -56,13 +56,14 @@ document.getElementById('start-destiny-btn').onclick = async function() {
         }
     }
 
-    this.innerText = "OPENING DESTINY...";
+    btn.innerText = "OPENING DESTINY...";
     
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getTracks().forEach(track => track.stop());
     } catch (err) {
         alert("CRITICAL: Camera/Mic permission required.");
+        btn.innerText = "ENTER CLASSROOM";
         return;
     }
 
@@ -74,9 +75,16 @@ document.getElementById('start-destiny-btn').onclick = async function() {
         startJitsi(roomId, "Teacher (Host)");
         startPeer(roomId);
     } else {
-        this.innerText = "AUTHENTICATING...";
-        startPeer(); // Random ID for student
-        setTimeout(() => connectToTeacher(roomId), 1000);
+        btn.innerText = "SEARCHING TEACHER...";
+        startPeer(); // Student gets random Peer ID
+        
+        // Wait for Peer to open before connecting
+        let checkPeer = setInterval(() => {
+            if (peer && peer.open) {
+                clearInterval(checkPeer);
+                connectToTeacher(roomId);
+            }
+        }, 500);
     }
 };
 
@@ -96,10 +104,18 @@ function startJitsi(id, name) {
 }
 
 function startPeer(id) {
+    if (peer) peer.destroy();
     peer = new Peer(id);
     peer.on('open', rid => {
         myIdDisplay.innerText = `Room ID: ${rid}`;
         setupPeerListeners();
+    });
+    peer.on('error', err => {
+        console.error("Peer Error:", err);
+        if (err.type === 'peer-unavailable') {
+            document.getElementById('start-destiny-btn').innerText = "TEACHER OFFLINE";
+            setTimeout(() => { document.getElementById('start-destiny-btn').innerText = "ENTER CLASSROOM"; }, 3000);
+        }
     });
 }
 
@@ -110,7 +126,7 @@ function setupPeerListeners() {
             if (data.type === 'knock') {
                 const isValid = students[data.id] && students[data.id].pass === data.pass;
                 if (!isValid) {
-                    conn.send({ type: 'deny', reason: 'Invalid Credentials' });
+                    conn.send({ type: 'deny', reason: 'Invalid ID or Password' });
                 } else {
                     handleKnock(conn.peer, students[data.id].name);
                 }
@@ -121,7 +137,6 @@ function setupPeerListeners() {
 }
 
 function handleKnock(id, name) {
-    pendingStudents[id] = { name };
     document.getElementById('student-knock-name').innerText = name + " is knocking...";
     document.getElementById('security-modal').classList.remove('hidden');
     
@@ -139,11 +154,17 @@ function handleKnock(id, name) {
 function connectToTeacher(id) {
     const sId = document.getElementById('student-id-input').value;
     const sPass = document.getElementById('student-pass-input').value;
+    const btn = document.getElementById('start-destiny-btn');
+    
+    btn.innerText = "AUTHENTICATING...";
     const conn = peer.connect(id);
     dataPeers[id] = conn;
+    
     conn.on('open', () => {
+        btn.innerText = "WAITING FOR HOST...";
         conn.send({ type: 'knock', id: sId, pass: sPass });
     });
+    
     conn.on('data', data => {
         if (data.type === 'admit') {
             startJitsi(data.roomId, data.name);
@@ -154,6 +175,14 @@ function connectToTeacher(id) {
             handleData(data);
         }
     });
+
+    // Timeout if teacher doesn't respond or exist
+    setTimeout(() => {
+        if (btn.innerText === "AUTHENTICATING..." || btn.innerText === "SEARCHING TEACHER...") {
+            alert("Teacher is offline or Classroom ID is wrong. Make sure the Teacher has started the session!");
+            window.location.reload();
+        }
+    }, 10000);
 }
 
 // --- ADMIN PANEL LOGIC ---
