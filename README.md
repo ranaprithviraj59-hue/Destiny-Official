@@ -1,0 +1,64 @@
+# 🌠 DESTINY: Premium Virtual Academy Engine
+
+![DESTINY Banner](https://img.shields.io/badge/Status-Live-success?style=for-the-badge&logo=rocket)
+![Tech](https://img.shields.io/badge/Tech-WebRTC%20|%20PeerJS-blue?style=for-the-badge)
+![Security](https://img.shields.io/badge/Security-E2E%20Encrypted-blueviolet?style=for-the-badge)
+
+**DESTINY** is a high-performance, ultra-secure, and 100% private P2P classroom engine designed for professional tuition centers. It eliminates the 40-minute limitations of Zoom and provides a premium, branded environment for elite teaching.
+
+---
+
+## 🚀 Key Features
+
+### 👨‍🏫 Teacher Command Center (Admin Panel)
+- **Unique Student Invites:** Generate 6-digit one-time access codes for each student.
+- **Access Management:** Real-time waiting room (Lobby) to "Admit" or "Deny" participants.
+- **Branded Experience:** High-end Glassmorphism UI that looks expensive and professional.
+
+### 🎨 Elite Teaching Tools
+- **Digital Whiteboard:** Professional pen and eraser tools with instant multi-student syncing.
+- **Collaborative Notes:** A shared real-time notepad for lesson points and homework.
+- **High-Quality Audio/Video:** Pure P2P technology for the lowest possible latency and 4K capability.
+- **One-Click Screen Share:** Instantly present slides, PDFs, or software windows.
+
+### 🔒 Privacy & Security
+- **No Data Storage:** Conversations and video never touch a server—they stay between teacher and student.
+- **End-to-End Encrypted:** Physically impossible for third parties to intercept the session.
+- **Local Recording:** Record lessons directly to your computer without cloud storage fees.
+
+---
+
+## 🛠️ Technology Stack
+- **Frontend:** Vanilla JavaScript (ES6+), HTML5, CSS3 (Glassmorphism Engine)
+- **Real-time Engine:** WebRTC (Direct Tunneling)
+- **Signaling:** PeerJS Cloud
+- **Security:** AES-level Handshake & Metadata Validation
+
+---
+
+## 📖 Quick Start Guide
+
+### For the Teacher
+1. **Launch:** Click **Start Session** and allow Camera/Mic access.
+2. **Security:** Go to the **Admin Dashboard (Shield Icon)** and type a student's name.
+3. **Invite:** Click **Generate Invite** to get a unique 6-digit code.
+4. **Share:** Send the Room URL + the Code to your student.
+5. **Teach:** Use the **Chalkboard** and **Notes** sidebar to start the lesson!
+
+### For the Student
+1. Click the link provided by the teacher.
+2. Enter the unique **6-digit code** in the Passcode box.
+3. Wait for the teacher to **Grant Access**.
+
+---
+
+## 🌐 Global Deployment
+This project is optimized for one-click deployment on **Vercel** or **GitHub Pages**.
+
+> **Note:** To enable Camera/Mic access on mobile devices, the application **must** be hosted on a secure `https` connection.
+
+---
+
+<div align="center">
+  <p>Built with ❤️ by <b>DESTINY TEAM</b></p>
+</div>
