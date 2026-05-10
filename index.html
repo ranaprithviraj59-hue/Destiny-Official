@@ -10,34 +10,45 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Modern UI Cleanup */
+        .footer-bar .join-box { display: none !important; } /* Hide confusing redundant join box */
+        .footer-bar { justify-content: center !important; }
+        #launch-screen { background: radial-gradient(circle at center, #1a1a2e, #0a0a0c) !important; }
+        .login-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); padding: 40px; border-radius: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 380px; }
+        input { transition: 0.3s; }
+        input:focus { border-color: var(--primary) !important; box-shadow: 0 0 15px rgba(77, 171, 247, 0.3); }
+        .role-btn { flex: 1; padding: 15px; border-radius: 12px; border: 2px solid #333; background: transparent; color: #aaa; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .role-btn.active { border-color: var(--primary); color: white; background: rgba(77, 171, 247, 0.1); }
+    </style>
 </head>
 <body>
-    <!-- Launch Overlay -->
-    <div id="launch-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0a0a0c; z-index:10000; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white;">
-        <i class="fas fa-meteor" style="font-size: 5rem; color:#4dabf7; margin-bottom:20px;"></i>
-        <h1 style="font-family:'Poppins'; letter-spacing: 5px;">DESTINY</h1>
-        <p style="color:#666; margin-bottom:30px; font-weight:300;">SECURE ACADEMY ENGINE</p>
-        
-        <div id="role-selection" style="display:flex; flex-direction:column; gap:15px; width:340px; background: rgba(255,255,255,0.03); padding: 30px; border-radius: 24px; border: 1px solid var(--glass);">
-            <div style="display:flex; gap:10px; margin-bottom: 10px;">
-                <button id="select-teacher-btn" style="flex:1; padding:12px; background:var(--glass); border:1px solid var(--primary); color:white; border-radius:10px; cursor:pointer; font-weight:bold;">HOST / TEACHER</button>
-                <button id="select-student-btn" style="flex:1; padding:12px; background:var(--glass); border:1px solid #333; color:white; border-radius:10px; cursor:pointer; font-weight:bold;">STUDENT</button>
+    <!-- Professional Launch Interface -->
+    <div id="launch-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:10000; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white;">
+        <div class="login-card">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <i class="fas fa-meteor" style="font-size: 4rem; color:#4dabf7; margin-bottom:15px;"></i>
+                <h1 style="font-family:'Poppins'; letter-spacing: 5px; margin:0;">DESTINY</h1>
+                <p style="color:#666; font-size: 0.8rem; letter-spacing: 2px;">SECURE ACADEMY ENGINE</p>
             </div>
             
-            <!-- Teacher Login Section -->
+            <div style="display:flex; gap:10px; margin-bottom: 20px;">
+                <button id="select-teacher-btn" class="role-btn">HOST</button>
+                <button id="select-student-btn" class="role-btn active">STUDENT</button>
+            </div>
+            
+            <!-- Teacher Section -->
             <div id="teacher-login-box" class="hidden">
-                <p style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; text-align: center;">Enter Admin Credentials</p>
-                <input type="password" id="admin-pass-input" placeholder="Admin Password" style="width:100%; padding:14px; background:rgba(0,0,0,0.3); border:1px solid var(--glass); color:white; border-radius:12px; text-align:center;">
+                <input type="password" id="admin-pass-input" placeholder="Admin Access Key" style="width:100%; padding:14px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:12px; text-align:center; font-size: 1rem;">
             </div>
 
-            <!-- Student Login Section -->
+            <!-- Student Section -->
             <div id="student-login-box">
-                <p style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; text-align: center;">Student Login Required</p>
-                <input type="text" id="student-id-input" placeholder="Student ID" style="width:100%; padding:14px; background:rgba(0,0,0,0.3); border:1px solid var(--glass); color:white; border-radius:12px; text-align:center; margin-bottom:10px;">
-                <input type="password" id="student-pass-input" placeholder="Access Password" style="width:100%; padding:14px; background:rgba(0,0,0,0.3); border:1px solid var(--glass); color:white; border-radius:12px; text-align:center;">
+                <input type="text" id="student-id-input" placeholder="Student ID" style="width:100%; padding:14px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:12px; text-align:center; margin-bottom:12px; font-size: 1rem;">
+                <input type="password" id="student-pass-input" placeholder="Password" style="width:100%; padding:14px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:12px; text-align:center; font-size: 1rem;">
             </div>
 
-            <button id="start-destiny-btn" style="padding:16px; background:#4dabf7; border:none; color:white; border-radius:16px; font-weight:bold; cursor:pointer; font-size:1.1rem; margin-top:10px; transition: 0.3s;">GET STARTED</button>
+            <button id="start-destiny-btn" style="width:100%; padding:18px; background:#4dabf7; border:none; color:white; border-radius:15px; font-weight:bold; cursor:pointer; font-size:1.1rem; margin-top:25px; box-shadow: 0 10px 25px rgba(77,171,247,0.4);">ENTER CLASSROOM</button>
         </div>
     </div>
 
@@ -53,9 +64,9 @@
                 <span id="status-text">End-to-End Encrypted</span>
             </div>
             <div class="user-info">
-                <button id="copy-id-btn" title="Share Classroom Link">
+                <button id="copy-id-btn" title="Copy Invite Link">
                     <span id="my-id-display">Connecting...</span>
-                    <i class="fas fa-share-alt"></i>
+                    <i class="fas fa-link" style="margin-left: 10px;"></i>
                 </button>
             </div>
         </header>
@@ -72,19 +83,18 @@
                             <input type="color" id="board-color" value="#4dabf7">
                             <button id="clear-board" class="board-btn"><i class="fas fa-sync-alt"></i></button>
                         </div>
-                        <div class="board-label">DESTINY Interactive Board</div>
+                        <div class="board-label">Interactive Whiteboard</div>
                     </div>
                 </div>
 
                 <div class="video-grid" id="video-grid">
-                    <div class="v-card local" id="local-wrapper">
+                    <div class="v-card local" id="local-wrapper" style="display:none;">
                         <video id="local-video" autoplay muted playsinline></video>
-                        <div class="v-label">Host (Teacher)</div>
                     </div>
                 </div>
             </section>
 
-            <!-- Multi-Function Sidebar -->
+            <!-- Side Tools -->
             <aside class="sidebar hidden" id="sidebar">
                 <nav class="side-nav">
                     <button class="nav-btn active" data-tab="notes"><i class="fas fa-file-alt"></i></button>
@@ -92,61 +102,48 @@
                     <button class="nav-btn" data-tab="admin" id="admin-tab-trigger"><i class="fas fa-user-shield"></i></button>
                 </nav>
 
-                <!-- Notes Tab -->
                 <div class="tab-pane active" id="notes-tab">
-                    <div class="pane-header">Shared Notes</div>
-                    <textarea id="shared-notes" placeholder="Type lesson notes here..."></textarea>
+                    <div class="pane-header">Shared Lesson Notes</div>
+                    <textarea id="shared-notes" placeholder="Collaborative notes go here..."></textarea>
                 </div>
 
-                <!-- Chat Tab -->
                 <div class="tab-pane" id="chat-tab">
-                    <div class="pane-header">Live Chat</div>
+                    <div class="pane-header">Classroom Chat</div>
                     <div id="chat-messages"></div>
                     <div class="chat-input-box">
-                        <input type="text" id="chat-input" placeholder="Ask a question...">
+                        <input type="text" id="chat-input" placeholder="Type a message...">
                         <button id="send-chat"><i class="fas fa-paper-plane"></i></button>
                     </div>
                 </div>
 
-                <!-- ADMIN PANEL TAB -->
                 <div class="tab-pane" id="admin-tab">
                     <div class="pane-header">Host Management</div>
                     <div class="admin-scroll">
                         <div class="admin-section">
-                            <h3>Create Student Account</h3>
-                            <div class="admin-input-group" style="flex-direction:column; display: flex; gap: 8px;">
-                                <input type="text" id="new-student-name" placeholder="Student's Full Name" style="width:100%; padding:10px; background:rgba(0,0,0,0.2); border:1px solid var(--glass); color:white; border-radius:8px;">
-                                <div style="display:flex; gap:5px;">
-                                    <input type="text" id="new-student-id" placeholder="Student ID" style="flex:1; padding:10px; background:rgba(0,0,0,0.2); border:1px solid var(--glass); color:white; border-radius:8px;">
-                                    <input type="text" id="new-student-pass" placeholder="Password" style="flex:1; padding:10px; background:rgba(0,0,0,0.2); border:1px solid var(--glass); color:white; border-radius:8px;">
+                            <h3 style="margin-bottom:15px;"><i class="fas fa-user-plus" style="margin-right:8px;"></i>Create Student ID</h3>
+                            <div style="display:flex; flex-direction:column; gap:10px;">
+                                <input type="text" id="new-student-name" placeholder="Full Name" style="width:100%; padding:12px; background:rgba(255,255,255,0.05); border:1px solid var(--glass); color:white; border-radius:10px;">
+                                <div style="display:flex; gap:10px;">
+                                    <input type="text" id="new-student-id" placeholder="New ID" style="flex:1; padding:12px; background:rgba(255,255,255,0.05); border:1px solid var(--glass); color:white; border-radius:10px;">
+                                    <input type="text" id="new-student-pass" placeholder="Password" style="flex:1; padding:12px; background:rgba(255,255,255,0.05); border:1px solid var(--glass); color:white; border-radius:10px;">
                                 </div>
-                                <button id="gen-student-code" class="btn-primary" style="margin-top:5px; width:100%; padding:12px; border-radius:8px;">ADD STUDENT ACCOUNT</button>
+                                <button id="gen-student-code" class="btn-primary" style="padding:15px; border-radius:12px; font-weight:bold;">CREATE ACCOUNT</button>
                             </div>
                         </div>
                         <div class="admin-section">
-                            <h3>Classroom Control</h3>
-                            <button id="mute-all-btn" class="btn-secondary" style="width:100%; margin-bottom:10px; border-color:var(--danger); color:var(--danger); padding:10px; border-radius:8px;">MUTE ALL STUDENTS</button>
-                            <p class="admin-hint">Instantly mutes all student microphones.</p>
+                            <h3><i class="fas fa-shield-alt" style="margin-right:8px;"></i>Host Controls</h3>
+                            <button id="mute-all-btn" class="btn-secondary" style="width:100%; border-color:var(--danger); color:var(--danger); padding:12px; border-radius:10px;">MUTE ALL MICs</button>
                         </div>
                         <div class="admin-section">
-                            <h3>Managed Student List</h3>
-                            <div id="student-list">
-                                <p style="color:#666; font-size: 0.8rem;">No accounts created yet.</p>
-                            </div>
+                            <h3><i class="fas fa-users" style="margin-right:8px;"></i>Registered Students</h3>
+                            <div id="student-list"></div>
                         </div>
                     </div>
                 </div>
             </aside>
         </main>
 
-        <!-- Controller -->
         <footer class="footer-bar">
-            <div class="group join-box">
-                <input type="password" id="room-pass" placeholder="Secret Key">
-                <input type="text" id="remote-id-input" placeholder="Join ID">
-                <button id="call-btn" class="btn-join">Join</button>
-            </div>
-
             <div class="group center-controls">
                 <button id="mic-btn" class="ctrl-btn active"><i class="fas fa-microphone"></i></button>
                 <button id="cam-btn" class="ctrl-btn active"><i class="fas fa-video"></i></button>
@@ -158,16 +155,16 @@
             </div>
         </footer>
 
-        <!-- Security Modal (Lobby) -->
+        <!-- Pro Lobby Modal -->
         <div id="security-modal" class="modal hidden">
             <div class="modal-blur">
-                <div class="modal-box">
-                    <div class="shield-icon"><i class="fas fa-user-lock"></i></div>
+                <div class="modal-box" style="background: #111; border: 1px solid var(--primary);">
+                    <div class="shield-icon" style="animation: pulse 2s infinite;"><i class="fas fa-door-open"></i></div>
                     <h2 id="student-knock-name">Student Knocking</h2>
-                    <p>Wants to join the session. Admit them?</p>
+                    <p style="margin-bottom:30px;">This student is waiting in the lobby. Admit them to the classroom?</p>
                     <div class="modal-btns">
-                        <button id="admit-btn" class="btn-primary">ADMIT STUDENT</button>
-                        <button id="deny-btn" class="btn-secondary">DENY</button>
+                        <button id="admit-btn" class="btn-primary" style="padding:15px; border-radius:12px;">ADMIT STUDENT</button>
+                        <button id="deny-btn" class="btn-secondary" style="padding:15px; border-radius:12px;">BLOCK</button>
                     </div>
                 </div>
             </div>
