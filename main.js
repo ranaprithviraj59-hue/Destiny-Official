@@ -9,6 +9,17 @@ const ctx = canvas.getContext('2d');
 let peer = null, dataPeers = {}, calls = {};
 let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
 let students = JSON.parse(localStorage.getItem('destiny_accounts') || '{}');
+
+// Add default test accounts if none exist
+if (Object.keys(students).length === 0) {
+    students = {
+        "STU01": { name: "Rahul (Test)", pass: "123" },
+        "STU02": { name: "Priya (Test)", pass: "123" },
+        "STU03": { name: "Amit (Test)", pass: "123" }
+    };
+    localStorage.setItem('destiny_accounts', JSON.stringify(students));
+}
+
 let jitsiApi = null;
 let currentRole = 'student'; 
 let pendingStudents = {};
