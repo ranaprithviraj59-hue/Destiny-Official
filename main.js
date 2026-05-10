@@ -8,33 +8,40 @@ const ctx = canvas.getContext('2d');
 
 let peer = null, dataPeers = {}, calls = {};
 let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
-let students = JSON.parse(localStorage.getItem('destiny_students') || '{}');
+let students = JSON.parse(localStorage.getItem('destiny_accounts') || '{}');
 let jitsiApi = null;
 let currentRole = 'student'; 
 let pendingStudents = {};
+let myStudentName = "";
 
 const ADMIN_PASSWORD = "DESTINY-PRO-2026"; 
 
+// --- ROLE SELECTION ---
 document.getElementById('select-teacher-btn').onclick = function() {
     currentRole = 'teacher';
     this.style.border = '1px solid #4dabf7';
     document.getElementById('select-student-btn').style.border = '1px solid #333';
-    document.getElementById('admin-pass-input').classList.remove('hidden');
+    document.getElementById('teacher-login-box').classList.remove('hidden');
+    document.getElementById('student-login-box').classList.add('hidden');
 };
 
 document.getElementById('select-student-btn').onclick = function() {
     currentRole = 'student';
     this.style.border = '1px solid #4dabf7';
     document.getElementById('select-teacher-btn').style.border = '1px solid #333';
-    document.getElementById('admin-pass-input').classList.add('hidden');
+    document.getElementById('student-login-box').classList.remove('hidden');
+    document.getElementById('teacher-login-box').classList.add('hidden');
 };
 
+// --- THE UNSTOPPABLE START ---
 document.getElementById('start-destiny-btn').onclick = async function() {
     if (currentRole === 'teacher') {
-        const inputPass = document.getElementById('admin-pass-input').value;
-        if (inputPass !== ADMIN_PASSWORD) {
-            alert("INCORRECT ADMIN PASSWORD.");
-            return;
+        if (document.getElementById('admin-pass-input').value !== ADMIN_PASSWORD) {
+            return alert("INCORRECT ADMIN PASSWORD.");
+        }
+    } else {
+        if (!document.getElementById('student-id-input').value || !document.getElementById('student-pass-input').value) {
+            return alert("Enter your Student ID and Password.");
         }
     }
 
@@ -53,23 +60,23 @@ document.getElementById('start-destiny-btn').onclick = async function() {
     if (!hashId) window.location.hash = roomId;
 
     if (currentRole === 'teacher') {
-        startJitsi(roomId);
+        startJitsi(roomId, "Teacher (Host)");
         startPeer(roomId);
     } else {
-        // Student waits for "Admit"
-        this.innerText = "WAITING FOR TEACHER...";
+        this.innerText = "AUTHENTICATING...";
         startPeer(); // Random ID for student
         setTimeout(() => connectToTeacher(roomId), 1000);
     }
 };
 
-function startJitsi(id) {
+function startJitsi(id, name) {
     const domain = 'meet.jit.si';
     const options = {
         roomName: id,
         width: '100%',
         height: '100%',
         parentNode: document.getElementById('video-grid'),
+        userInfo: { displayName: name },
         configOverwrite: { prejoinPageEnabled: false, disableDeepLinking: true },
         interfaceConfigOverwrite: { TOOLBAR_BUTTONS: [] }
     };
@@ -90,7 +97,12 @@ function setupPeerListeners() {
         dataPeers[conn.peer] = conn;
         conn.on('data', data => {
             if (data.type === 'knock') {
-                handleKnock(conn.peer, data.name);
+                const isValid = students[data.id] && students[data.id].pass === data.pass;
+                if (!isValid) {
+                    conn.send({ type: 'deny', reason: 'Invalid Credentials' });
+                } else {
+                    handleKnock(conn.peer, students[data.id].name);
+                }
             }
             handleData(data);
         });
@@ -103,36 +115,87 @@ function handleKnock(id, name) {
     document.getElementById('security-modal').classList.remove('hidden');
     
     document.getElementById('admit-btn').onclick = () => {
-        dataPeers[id].send({ type: 'admit', roomId: window.location.hash.substring(1) });
+        dataPeers[id].send({ type: 'admit', roomId: window.location.hash.substring(1), name: name });
         document.getElementById('security-modal').classList.add('hidden');
-        delete pendingStudents[id];
     };
     
     document.getElementById('deny-btn').onclick = () => {
-        dataPeers[id].send({ type: 'deny' });
+        dataPeers[id].send({ type: 'deny', reason: 'Teacher declined entry' });
         document.getElementById('security-modal').classList.add('hidden');
-        delete pendingStudents[id];
     };
 }
 
 function connectToTeacher(id) {
-    const name = prompt("Enter your name to join:") || "Guest Student";
+    const sId = document.getElementById('student-id-input').value;
+    const sPass = document.getElementById('student-pass-input').value;
     const conn = peer.connect(id);
     dataPeers[id] = conn;
     conn.on('open', () => {
-        conn.send({ type: 'knock', name: name });
+        conn.send({ type: 'knock', id: sId, pass: sPass });
     });
     conn.on('data', data => {
         if (data.type === 'admit') {
-            startJitsi(data.roomId);
+            startJitsi(data.roomId, data.name);
         } else if (data.type === 'deny') {
-            alert("The Teacher denied your entry.");
+            alert("ACCESS DENIED: " + data.reason);
             window.location.reload();
         } else {
             handleData(data);
         }
     });
 }
+
+// --- ADMIN PANEL LOGIC ---
+document.getElementById('gen-student-code').onclick = () => {
+    const name = document.getElementById('new-student-name').value;
+    const id = document.getElementById('new-student-id').value;
+    const pass = document.getElementById('new-student-pass').value;
+    
+    if (!name || !id || !pass) return alert("Fill all fields!");
+    
+    students[id] = { name, pass };
+    localStorage.setItem('destiny_accounts', JSON.stringify(students));
+    
+    document.getElementById('new-student-name').value = '';
+    document.getElementById('new-student-id').value = '';
+    document.getElementById('new-student-pass').value = '';
+    renderStudents();
+    alert("Account Created for " + name);
+};
+
+function renderStudents() {
+    const list = document.getElementById('student-list');
+    list.innerHTML = '';
+    for (let id in students) {
+        const div = document.createElement('div');
+        div.className = 'student-item';
+        div.innerHTML = `
+            <div class="student-info">
+                <span class="s-name">${students[id].name}</span>
+                <span class="s-code">ID: ${id} | Pass: ${students[id].pass}</span>
+            </div>
+            <div class="student-item-btns">
+                <button class="btn-del" onclick="deleteStudent('${id}')"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
+        list.appendChild(div);
+    }
+}
+
+window.deleteStudent = (id) => {
+    delete students[id];
+    localStorage.setItem('destiny_accounts', JSON.stringify(students));
+    renderStudents();
+};
+
+window.onload = () => {
+    renderStudents();
+    const hashId = window.location.hash.substring(1);
+    if (hashId) {
+        document.getElementById('select-student-btn').click();
+        document.getElementById('start-destiny-btn').innerText = "LOGIN & JOIN";
+    }
+};
 
 // --- TOOLS & BROADCAST ---
 function broadcast(data) {

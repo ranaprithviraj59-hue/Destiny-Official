@@ -97,15 +97,18 @@
 
                 <!-- ADMIN PANEL TAB -->
                 <div class="tab-pane" id="admin-tab">
-                    <div class="pane-header">Teacher Dashboard</div>
+                    <div class="pane-header">Host Management</div>
                     <div class="admin-scroll">
                         <div class="admin-section">
-                            <h3>Invite Student</h3>
-                            <div class="admin-input-group">
-                                <input type="text" id="new-student-name" placeholder="Student Name">
-                                <button id="gen-student-code" class="btn-primary">Generate</button>
+                            <h3>Create Student Account</h3>
+                            <div class="admin-input-group" style="flex-direction:column;">
+                                <input type="text" id="new-student-name" placeholder="Full Name" style="width:100%; margin-bottom:5px;">
+                                <div style="display:flex; gap:5px;">
+                                    <input type="text" id="new-student-id" placeholder="ID (e.g. STU01)" style="flex:1;">
+                                    <input type="text" id="new-student-pass" placeholder="Password" style="flex:1;">
+                                </div>
+                                <button id="gen-student-code" class="btn-primary" style="margin-top:10px; width:100%;">Create Account</button>
                             </div>
-                            <p class="admin-hint">Generates a unique 6-digit access code.</p>
                         </div>
                         <div class="admin-section">
                             <h3>Classroom Control</h3>
@@ -156,6 +159,17 @@
                     <h2 id="student-knock-name">Student Knocking</h2>
                     <p>Wants to join the session. Admit them?</p>
                     <div class="modal-btns">
+                        <button id="admit-btn" class="btn-primary">Grant Entry</button>
+                        <button id="deny-btn" class="btn-secondary">Block</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>
+                   <div class="modal-btns">
                         <button id="admit-btn" class="btn-primary">Grant Entry</button>
                         <button id="deny-btn" class="btn-secondary">Block</button>
                     </div>
