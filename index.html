@@ -16,15 +16,28 @@
     <div id="launch-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0a0a0c; z-index:10000; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white;">
         <i class="fas fa-meteor" style="font-size: 5rem; color:#4dabf7; margin-bottom:20px;"></i>
         <h1 style="font-family:'Poppins'; letter-spacing: 5px;">DESTINY</h1>
-        <p style="color:#666; margin-bottom:20px; font-weight:300;">SECURE ACADEMY ENGINE</p>
+        <p style="color:#666; margin-bottom:30px; font-weight:300;">SECURE ACADEMY ENGINE</p>
         
-        <div id="role-selection" style="display:flex; flex-direction:column; gap:15px; width:300px;">
-            <div style="display:flex; gap:10px;">
-                <button id="select-teacher-btn" style="flex:1; padding:12px; background:var(--glass); border:1px solid var(--primary); color:white; border-radius:10px; cursor:pointer; font-weight:bold;">TEACHER</button>
+        <div id="role-selection" style="display:flex; flex-direction:column; gap:15px; width:340px; background: rgba(255,255,255,0.03); padding: 30px; border-radius: 24px; border: 1px solid var(--glass);">
+            <div style="display:flex; gap:10px; margin-bottom: 10px;">
+                <button id="select-teacher-btn" style="flex:1; padding:12px; background:var(--glass); border:1px solid var(--primary); color:white; border-radius:10px; cursor:pointer; font-weight:bold;">HOST / TEACHER</button>
                 <button id="select-student-btn" style="flex:1; padding:12px; background:var(--glass); border:1px solid #333; color:white; border-radius:10px; cursor:pointer; font-weight:bold;">STUDENT</button>
             </div>
-            <input type="password" id="admin-pass-input" placeholder="Admin Password" class="hidden" style="padding:12px; background:rgba(255,255,255,0.05); border:1px solid var(--glass); color:white; border-radius:10px; text-align:center;">
-            <button id="start-destiny-btn" style="padding:15px; background:#4dabf7; border:none; color:white; border-radius:30px; font-weight:bold; cursor:pointer; font-size:1.1rem; box-shadow: 0 10px 30px rgba(77,171,247,0.3);">LAUNCH CLASSROOM</button>
+            
+            <!-- Teacher Login Section -->
+            <div id="teacher-login-box" class="hidden">
+                <p style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; text-align: center;">Enter Admin Credentials</p>
+                <input type="password" id="admin-pass-input" placeholder="Admin Password" style="width:100%; padding:14px; background:rgba(0,0,0,0.3); border:1px solid var(--glass); color:white; border-radius:12px; text-align:center;">
+            </div>
+
+            <!-- Student Login Section -->
+            <div id="student-login-box">
+                <p style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; text-align: center;">Student Login Required</p>
+                <input type="text" id="student-id-input" placeholder="Student ID" style="width:100%; padding:14px; background:rgba(0,0,0,0.3); border:1px solid var(--glass); color:white; border-radius:12px; text-align:center; margin-bottom:10px;">
+                <input type="password" id="student-pass-input" placeholder="Access Password" style="width:100%; padding:14px; background:rgba(0,0,0,0.3); border:1px solid var(--glass); color:white; border-radius:12px; text-align:center;">
+            </div>
+
+            <button id="start-destiny-btn" style="padding:16px; background:#4dabf7; border:none; color:white; border-radius:16px; font-weight:bold; cursor:pointer; font-size:1.1rem; margin-top:10px; transition: 0.3s;">GET STARTED</button>
         </div>
     </div>
 
@@ -101,30 +114,24 @@
                     <div class="admin-scroll">
                         <div class="admin-section">
                             <h3>Create Student Account</h3>
-                            <div class="admin-input-group" style="flex-direction:column;">
-                                <input type="text" id="new-student-name" placeholder="Full Name" style="width:100%; margin-bottom:5px;">
+                            <div class="admin-input-group" style="flex-direction:column; display: flex; gap: 8px;">
+                                <input type="text" id="new-student-name" placeholder="Student's Full Name" style="width:100%; padding:10px; background:rgba(0,0,0,0.2); border:1px solid var(--glass); color:white; border-radius:8px;">
                                 <div style="display:flex; gap:5px;">
-                                    <input type="text" id="new-student-id" placeholder="ID (e.g. STU01)" style="flex:1;">
-                                    <input type="text" id="new-student-pass" placeholder="Password" style="flex:1;">
+                                    <input type="text" id="new-student-id" placeholder="Student ID" style="flex:1; padding:10px; background:rgba(0,0,0,0.2); border:1px solid var(--glass); color:white; border-radius:8px;">
+                                    <input type="text" id="new-student-pass" placeholder="Password" style="flex:1; padding:10px; background:rgba(0,0,0,0.2); border:1px solid var(--glass); color:white; border-radius:8px;">
                                 </div>
-                                <button id="gen-student-code" class="btn-primary" style="margin-top:10px; width:100%;">Create Account</button>
+                                <button id="gen-student-code" class="btn-primary" style="margin-top:5px; width:100%; padding:12px; border-radius:8px;">ADD STUDENT ACCOUNT</button>
                             </div>
                         </div>
                         <div class="admin-section">
                             <h3>Classroom Control</h3>
-                            <button id="mute-all-btn" class="btn-secondary" style="width:100%; margin-bottom:10px; border-color:var(--danger); color:var(--danger);">MUTE ALL STUDENTS</button>
-                            <p class="admin-hint">Instantly mutes all active student microphones.</p>
+                            <button id="mute-all-btn" class="btn-secondary" style="width:100%; margin-bottom:10px; border-color:var(--danger); color:var(--danger); padding:10px; border-radius:8px;">MUTE ALL STUDENTS</button>
+                            <p class="admin-hint">Instantly mutes all student microphones.</p>
                         </div>
                         <div class="admin-section">
-                            <h3>Waiting Room</h3>
-                            <div id="waiting-room-list">
-                                <p style="color:#666; font-size: 0.8rem;">No one is knocking currently.</p>
-                            </div>
-                        </div>
-                        <div class="admin-section">
-                            <h3>Managed Students</h3>
+                            <h3>Managed Student List</h3>
                             <div id="student-list">
-                                <p style="color:#666; font-size: 0.8rem;">No students added yet.</p>
+                                <p style="color:#666; font-size: 0.8rem;">No accounts created yet.</p>
                             </div>
                         </div>
                     </div>
@@ -151,7 +158,7 @@
             </div>
         </footer>
 
-        <!-- Security Modal -->
+        <!-- Security Modal (Lobby) -->
         <div id="security-modal" class="modal hidden">
             <div class="modal-blur">
                 <div class="modal-box">
@@ -159,19 +166,8 @@
                     <h2 id="student-knock-name">Student Knocking</h2>
                     <p>Wants to join the session. Admit them?</p>
                     <div class="modal-btns">
-                        <button id="admit-btn" class="btn-primary">Grant Entry</button>
-                        <button id="deny-btn" class="btn-secondary">Block</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script src="main.js"></script>
-</body>
-</html>
-                   <div class="modal-btns">
-                        <button id="admit-btn" class="btn-primary">Grant Entry</button>
-                        <button id="deny-btn" class="btn-secondary">Block</button>
+                        <button id="admit-btn" class="btn-primary">ADMIT STUDENT</button>
+                        <button id="deny-btn" class="btn-secondary">DENY</button>
                     </div>
                 </div>
             </div>
