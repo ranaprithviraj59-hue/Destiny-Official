@@ -8,27 +8,25 @@ const ctx = canvas.getContext('2d');
 
 let peer = null, dataPeers = {}, calls = {};
 let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
-let students = JSON.parse(localStorage.getItem('destiny_accounts') || '{}');
 
-// Pre-fill Test Accounts
-if (Object.keys(students).length === 0) {
-    students = {
-        "STU01": { name: "Rahul (Test)", pass: "123" },
-        "STU02": { name: "Priya (Test)", pass: "123" },
-        "STU03": { name: "Amit (Test)", pass: "123" }
-    };
-    localStorage.setItem('destiny_accounts', JSON.stringify(students));
-}
+// --- GLOBAL TEST ACCOUNTS (Work for everyone) ---
+const GLOBAL_ACCOUNTS = {
+    "STU01": { name: "Rahul (Test)", pass: "123" },
+    "STU02": { name: "Priya (Test)", pass: "123" },
+    "STU03": { name: "Amit (Test)", pass: "123" }
+};
+
+// Teacher's custom created accounts
+let customStudents = JSON.parse(localStorage.getItem('destiny_accounts') || '{}');
 
 let jitsiApi = null;
 let currentRole = 'student'; 
 const ADMIN_PASSWORD = "DESTINY-PRO-2026"; 
 
 // --- STATUS LOGGER ---
-function logStatus(msg, color = "#adb5bd") {
+function logStatus(msg) {
     const btn = document.getElementById('start-destiny-btn');
     btn.innerText = msg.toUpperCase();
-    console.log(`[DESTINY] ${msg}`);
 }
 
 // --- ROLE SELECTION ---
@@ -55,9 +53,9 @@ document.getElementById('start-destiny-btn').onclick = async function() {
             return alert("INCORRECT ADMIN PASSWORD.");
         }
     } else {
-        if (!document.getElementById('student-id-input').value || !document.getElementById('student-pass-input').value) {
-            return alert("Enter Student ID and Password.");
-        }
+        const sid = document.getElementById('student-id-input').value;
+        const spass = document.getElementById('student-pass-input').value;
+        if (!sid || !spass) return alert("Enter Student ID and Password.");
     }
 
     logStatus("Securing Media...");
@@ -78,7 +76,7 @@ document.getElementById('start-destiny-btn').onclick = async function() {
         initPeer(roomId);
     } else {
         logStatus("Locating Teacher...");
-        initPeer(); // Random Student ID
+        initPeer(); 
         let attempts = 0;
         const linker = setInterval(() => {
             attempts++;
@@ -86,10 +84,10 @@ document.getElementById('start-destiny-btn').onclick = async function() {
                 clearInterval(linker);
                 tryConnect(roomId);
             }
-            if (attempts > 20) {
+            if (attempts > 30) {
                 clearInterval(linker);
                 logStatus("Teacher Offline");
-                alert("The teacher hasn't started the session yet. Please wait for the teacher to go live.");
+                alert("Teacher is offline. Host must start the classroom first!");
                 window.location.reload();
             }
         }, 500);
@@ -98,7 +96,7 @@ document.getElementById('start-destiny-btn').onclick = async function() {
 
 function initPeer(id) {
     if (peer) peer.destroy();
-    peer = new Peer(id, { debug: 2 });
+    peer = new Peer(id, { debug: 1 });
     peer.on('open', rid => {
         myIdDisplay.innerText = `ID: ${rid}`;
         peer.on('connection', conn => {
@@ -107,10 +105,7 @@ function initPeer(id) {
         });
     });
     peer.on('error', err => {
-        console.error("Peer Error:", err.type);
-        if (err.type === 'peer-unavailable') {
-            logStatus("Teacher Offline");
-        }
+        if (err.type === 'peer-unavailable') logStatus("Teacher Offline");
     });
 }
 
@@ -132,7 +127,7 @@ function tryConnect(teacherId) {
             logStatus("Entry Granted");
             initJitsi(data.roomId, data.name);
         } else if (data.type === 'deny') {
-            alert("Entry Denied: " + (data.reason || "Teacher declined"));
+            alert("ACCESS DENIED: " + (data.reason || "Teacher declined"));
             window.location.reload();
         } else {
             handleDataSync(data);
@@ -142,11 +137,12 @@ function tryConnect(teacherId) {
 
 function handleIncomingData(conn, data) {
     if (data.type === 'knock') {
-        const student = students[data.id];
+        // Check BOTH Global and Custom accounts
+        const student = GLOBAL_ACCOUNTS[data.id] || customStudents[data.id];
         if (student && student.pass === data.pass) {
             showLobbyModal(conn, student.name);
         } else {
-            conn.send({ type: 'deny', reason: 'Invalid ID/Password' });
+            conn.send({ type: 'deny', reason: 'Invalid Credentials' });
         }
     } else {
         handleDataSync(data);
@@ -163,7 +159,7 @@ function showLobbyModal(conn, name) {
     };
     
     document.getElementById('deny-btn').onclick = () => {
-        conn.send({ type: 'deny', reason: 'Teacher declined' });
+        conn.send({ type: 'deny', reason: 'Teacher declined entry' });
         document.getElementById('security-modal').classList.add('hidden');
     };
 }
@@ -172,8 +168,7 @@ function initJitsi(id, name) {
     const domain = 'meet.jit.si';
     const options = {
         roomName: id,
-        width: '100%',
-        height: '100%',
+        width: '100%', height: '100%',
         parentNode: document.getElementById('video-grid'),
         userInfo: { displayName: name },
         configOverwrite: { prejoinPageEnabled: false, disableDeepLinking: true },
@@ -183,7 +178,6 @@ function initJitsi(id, name) {
     document.getElementById('launch-screen').style.display = 'none';
 }
 
-// --- BROADCAST & TOOLS ---
 function broadcast(data) {
     Object.values(dataPeers).forEach(p => p.open && p.send(data));
 }
@@ -230,17 +224,16 @@ document.getElementById('end-btn').onclick = () => confirm("End Session?") && wi
 
 document.getElementById('copy-id-btn').onclick = () => {
     navigator.clipboard.writeText(window.location.href);
-    alert('Professional Invite Link Copied!');
+    alert('Invite Link Copied!');
 };
 
-// Admin Logic
 document.getElementById('gen-student-code').onclick = () => {
     const name = document.getElementById('new-student-name').value;
     const id = document.getElementById('new-student-id').value;
     const pass = document.getElementById('new-student-pass').value;
     if (!name || !id || !pass) return alert("Fill all fields");
-    students[id] = { name, pass };
-    localStorage.setItem('destiny_accounts', JSON.stringify(students));
+    customStudents[id] = { name, pass };
+    localStorage.setItem('destiny_accounts', JSON.stringify(customStudents));
     renderStudents();
     alert("Account Created!");
 };
@@ -248,20 +241,26 @@ document.getElementById('gen-student-code').onclick = () => {
 function renderStudents() {
     const list = document.getElementById('student-list');
     list.innerHTML = '';
-    for (let id in students) {
+    // Show Global accounts first
+    for (let id in GLOBAL_ACCOUNTS) {
         const div = document.createElement('div');
         div.className = 'student-item';
-        div.innerHTML = `<span>${students[id].name} (ID: ${id})</span><button onclick="deleteStu('${id}')">Del</button>`;
+        div.innerHTML = `<span style="color:#4dabf7;">${GLOBAL_ACCOUNTS[id].name} (Global)</span>`;
+        list.appendChild(div);
+    }
+    // Then show custom ones
+    for (let id in customStudents) {
+        const div = document.createElement('div');
+        div.className = 'student-item';
+        div.innerHTML = `<span>${customStudents[id].name} (ID: ${id})</span><button onclick="deleteStu('${id}')">Del</button>`;
         list.appendChild(div);
     }
 }
-window.deleteStu = (id) => { delete students[id]; localStorage.setItem('destiny_accounts', JSON.stringify(students)); renderStudents(); };
+window.deleteStu = (id) => { delete customStudents[id]; localStorage.setItem('destiny_accounts', JSON.stringify(customStudents)); renderStudents(); };
 
 window.onload = () => {
     renderStudents();
-    if (window.location.hash) {
-        document.getElementById('select-student-btn').click();
-    }
+    if (window.location.hash) document.getElementById('select-student-btn').click();
 };
 
 document.querySelectorAll('.nav-btn').forEach(b => {
