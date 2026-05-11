@@ -16,14 +16,13 @@ const GLOBAL_ACCOUNTS = {
     "STU03": { name: "Amit (Test)", pass: "123" }
 };
 
-// Teacher's custom created accounts
 let customStudents = JSON.parse(localStorage.getItem('destiny_accounts') || '{}');
-
 let jitsiApi = null;
 let currentRole = 'student'; 
 const ADMIN_PASSWORD = "DESTINY-PRO-2026"; 
 
-// --- STATUS LOGGER ---
+console.log("DESTINY Engine v2.0 - Loaded Successfully");
+
 function logStatus(msg) {
     const btn = document.getElementById('start-destiny-btn');
     btn.innerText = msg.toUpperCase();
@@ -87,7 +86,7 @@ document.getElementById('start-destiny-btn').onclick = async function() {
             if (attempts > 30) {
                 clearInterval(linker);
                 logStatus("Teacher Offline");
-                alert("Teacher is offline. Host must start the classroom first!");
+                alert("The teacher hasn't started the session yet. Make sure the Host is online!");
                 window.location.reload();
             }
         }, 500);
@@ -104,9 +103,6 @@ function initPeer(id) {
             conn.on('data', data => handleIncomingData(conn, data));
         });
     });
-    peer.on('error', err => {
-        if (err.type === 'peer-unavailable') logStatus("Teacher Offline");
-    });
 }
 
 function tryConnect(teacherId) {
@@ -117,8 +113,8 @@ function tryConnect(teacherId) {
         logStatus("Waiting in Lobby...");
         conn.send({ 
             type: 'knock', 
-            id: document.getElementById('student-id-input').value, 
-            pass: document.getElementById('student-pass-input').value 
+            id: document.getElementById('student-id-input').value.trim().toUpperCase(), 
+            pass: document.getElementById('student-pass-input').value.trim() 
         });
     });
 
@@ -137,12 +133,12 @@ function tryConnect(teacherId) {
 
 function handleIncomingData(conn, data) {
     if (data.type === 'knock') {
-        // Check BOTH Global and Custom accounts
-        const student = GLOBAL_ACCOUNTS[data.id] || customStudents[data.id];
+        const studentId = data.id.toUpperCase();
+        const student = GLOBAL_ACCOUNTS[studentId] || customStudents[studentId];
         if (student && student.pass === data.pass) {
             showLobbyModal(conn, student.name);
         } else {
-            conn.send({ type: 'deny', reason: 'Invalid Credentials' });
+            conn.send({ type: 'deny', reason: 'Invalid ID or Password' });
         }
     } else {
         handleDataSync(data);
@@ -171,8 +167,19 @@ function initJitsi(id, name) {
         width: '100%', height: '100%',
         parentNode: document.getElementById('video-grid'),
         userInfo: { displayName: name },
-        configOverwrite: { prejoinPageEnabled: false, disableDeepLinking: true },
-        interfaceConfigOverwrite: { TOOLBAR_BUTTONS: [] }
+        configOverwrite: { 
+            prejoinPageEnabled: false, 
+            skipPrejoinButton: true,
+            enableWelcomePage: false,
+            disableDeepLinking: true,
+            startWithAudioMuted: false,
+            startWithVideoMuted: false
+        },
+        interfaceConfigOverwrite: { 
+            TOOLBAR_BUTTONS: [],
+            SHOW_PROMOTIONAL_CLOSE_PAGE: false,
+            SHOW_JITSI_WATERMARK: false
+        }
     };
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
     document.getElementById('launch-screen').style.display = 'none';
@@ -186,7 +193,7 @@ function handleDataSync(data) {
     if (data.type === 'draw') draw(data.x, data.y, data.lx, data.ly, data.color, data.isE, false);
     if (data.type === 'clear') ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (data.type === 'notes') sharedNotes.value = data.text;
-    if (data.type === 'chat') appendMsg('User', data.text);
+    if (data.type === 'chat') appendMsg('Partner', data.text);
 }
 
 // Whiteboard
@@ -229,7 +236,7 @@ document.getElementById('copy-id-btn').onclick = () => {
 
 document.getElementById('gen-student-code').onclick = () => {
     const name = document.getElementById('new-student-name').value;
-    const id = document.getElementById('new-student-id').value;
+    const id = document.getElementById('new-student-id').value.toUpperCase();
     const pass = document.getElementById('new-student-pass').value;
     if (!name || !id || !pass) return alert("Fill all fields");
     customStudents[id] = { name, pass };
@@ -241,17 +248,13 @@ document.getElementById('gen-student-code').onclick = () => {
 function renderStudents() {
     const list = document.getElementById('student-list');
     list.innerHTML = '';
-    // Show Global accounts first
     for (let id in GLOBAL_ACCOUNTS) {
-        const div = document.createElement('div');
-        div.className = 'student-item';
+        const div = document.createElement('div'); div.className = 'student-item';
         div.innerHTML = `<span style="color:#4dabf7;">${GLOBAL_ACCOUNTS[id].name} (Global)</span>`;
         list.appendChild(div);
     }
-    // Then show custom ones
     for (let id in customStudents) {
-        const div = document.createElement('div');
-        div.className = 'student-item';
+        const div = document.createElement('div'); div.className = 'student-item';
         div.innerHTML = `<span>${customStudents[id].name} (ID: ${id})</span><button onclick="deleteStu('${id}')">Del</button>`;
         list.appendChild(div);
     }
