@@ -9,11 +9,11 @@ const ctx = canvas.getContext('2d');
 let peer = null, dataPeers = {}, calls = {};
 let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
 
-// --- GLOBAL TEST ACCOUNTS (Work for everyone) ---
+// --- THE TRULY GLOBAL ACCOUNTS ---
 const GLOBAL_ACCOUNTS = {
-    "STU01": { name: "Rahul (Test)", pass: "123" },
-    "STU02": { name: "Priya (Test)", pass: "123" },
-    "STU03": { name: "Amit (Test)", pass: "123" }
+    "STU01": { name: "Rahul", pass: "123" },
+    "STU02": { name: "Priya", pass: "123" },
+    "STU03": { name: "Amit", pass: "123" }
 };
 
 let customStudents = JSON.parse(localStorage.getItem('destiny_accounts') || '{}');
@@ -21,11 +21,8 @@ let jitsiApi = null;
 let currentRole = 'student'; 
 const ADMIN_PASSWORD = "DESTINY-PRO-2026"; 
 
-console.log("DESTINY Engine v2.0 - Loaded Successfully");
-
 function logStatus(msg) {
-    const btn = document.getElementById('start-destiny-btn');
-    btn.innerText = msg.toUpperCase();
+    document.getElementById('start-destiny-btn').innerText = msg.toUpperCase();
 }
 
 // --- ROLE SELECTION ---
@@ -52,9 +49,9 @@ document.getElementById('start-destiny-btn').onclick = async function() {
             return alert("INCORRECT ADMIN PASSWORD.");
         }
     } else {
-        const sid = document.getElementById('student-id-input').value;
-        const spass = document.getElementById('student-pass-input').value;
-        if (!sid || !spass) return alert("Enter Student ID and Password.");
+        const sid = document.getElementById('student-id-input').value.trim();
+        const spass = document.getElementById('student-pass-input').value.trim();
+        if (!sid || !spass) return alert("Please enter Student ID and Password.");
     }
 
     logStatus("Securing Media...");
@@ -62,31 +59,31 @@ document.getElementById('start-destiny-btn').onclick = async function() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getTracks().forEach(t => t.stop());
     } catch (err) {
-        return alert("Camera/Mic Permission Denied.");
+        alert("Camera/Mic Permission Denied. The app will continue but video/audio won't work.");
     }
 
     const hashId = window.location.hash.substring(1);
-    const roomId = hashId || 'ROOM-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    const roomId = hashId || 'DESTINY-' + Math.random().toString(36).substr(2, 8).toUpperCase();
     if (!hashId) window.location.hash = roomId;
 
     if (currentRole === 'teacher') {
-        logStatus("Initializing Host...");
+        logStatus("Starting Host...");
         initJitsi(roomId, "Teacher (Host)");
         initPeer(roomId);
     } else {
-        logStatus("Locating Teacher...");
+        logStatus("Connecting...");
         initPeer(); 
         let attempts = 0;
         const linker = setInterval(() => {
             attempts++;
             if (peer && peer.open) {
                 clearInterval(linker);
-                tryConnect(roomId);
+                tryConnectToHost(roomId);
             }
-            if (attempts > 30) {
+            if (attempts > 40) {
                 clearInterval(linker);
                 logStatus("Teacher Offline");
-                alert("The teacher hasn't started the session yet. Make sure the Host is online!");
+                alert("Teacher is not online yet. Please wait for the host to start.");
                 window.location.reload();
             }
         }, 500);
@@ -105,25 +102,25 @@ function initPeer(id) {
     });
 }
 
-function tryConnect(teacherId) {
+function tryConnectToHost(hostId) {
     logStatus("Authenticating...");
-    const conn = peer.connect(teacherId, { reliable: true });
+    const conn = peer.connect(hostId, { reliable: true });
     
     conn.on('open', () => {
         logStatus("Waiting in Lobby...");
         conn.send({ 
             type: 'knock', 
-            id: document.getElementById('student-id-input').value.trim().toUpperCase(), 
+            id: document.getElementById('student-id-input').value.trim(), 
             pass: document.getElementById('student-pass-input').value.trim() 
         });
     });
 
     conn.on('data', data => {
         if (data.type === 'admit') {
-            logStatus("Entry Granted");
+            logStatus("Access Granted");
             initJitsi(data.roomId, data.name);
         } else if (data.type === 'deny') {
-            alert("ACCESS DENIED: " + (data.reason || "Teacher declined"));
+            alert("ACCESS DENIED: " + (data.reason || "Teacher declined entry"));
             window.location.reload();
         } else {
             handleDataSync(data);
@@ -133,11 +130,15 @@ function tryConnect(teacherId) {
 
 function handleIncomingData(conn, data) {
     if (data.type === 'knock') {
-        const studentId = data.id.toUpperCase();
-        const student = GLOBAL_ACCOUNTS[studentId] || customStudents[studentId];
+        const sId = data.id.toUpperCase();
+        // Check Global + Custom accounts
+        const student = GLOBAL_ACCOUNTS[sId] || customStudents[sId];
+        
         if (student && student.pass === data.pass) {
+            console.log(`[HOST] Match found for student: ${student.name}`);
             showLobbyModal(conn, student.name);
         } else {
+            console.log(`[HOST] Login Failed for ID: ${sId}`);
             conn.send({ type: 'deny', reason: 'Invalid ID or Password' });
         }
     } else {
@@ -168,17 +169,27 @@ function initJitsi(id, name) {
         parentNode: document.getElementById('video-grid'),
         userInfo: { displayName: name },
         configOverwrite: { 
-            prejoinPageEnabled: false, 
+            prejoinPageEnabled: false,
+            prejoinConfig: { enabled: false },
             skipPrejoinButton: true,
             enableWelcomePage: false,
             disableDeepLinking: true,
             startWithAudioMuted: false,
-            startWithVideoMuted: false
+            startWithVideoMuted: false,
+            requireDisplayName: false
         },
         interfaceConfigOverwrite: { 
-            TOOLBAR_BUTTONS: [],
+            TOOLBAR_BUTTONS: [
+                'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
+                'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
+                'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
+                'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
+                'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
+                'security'
+            ],
             SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-            SHOW_JITSI_WATERMARK: false
+            SHOW_JITSI_WATERMARK: false,
+            RECENT_LIST_ENABLED: false
         }
     };
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
@@ -263,7 +274,9 @@ window.deleteStu = (id) => { delete customStudents[id]; localStorage.setItem('de
 
 window.onload = () => {
     renderStudents();
-    if (window.location.hash) document.getElementById('select-student-btn').click();
+    if (window.location.hash) {
+        document.getElementById('select-student-btn').click();
+    }
 };
 
 document.querySelectorAll('.nav-btn').forEach(b => {
