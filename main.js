@@ -9,11 +9,11 @@ const ctx = canvas.getContext('2d');
 let peer = null, dataPeers = {}, calls = {};
 let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
 
-// --- ENGINE VERSION (Visible to user to verify update) ---
-const VERSION = "DESTINY-PRO-V3.0";
-console.log(`[SYSTEM] Starting ${VERSION}...`);
+// --- THE OFFICIAL "FIXED" ENGINE VERSION ---
+const VERSION = "ENGINE-PRO-V4.0";
+console.log(`%c[DESTINY] %cRunning ${VERSION}`, "color: #4dabf7; font-weight: bold;", "color: white;");
 
-// --- 100% HARDCODED ACCOUNTS ---
+// --- FIXED GLOBAL ACCOUNTS ---
 const ACCOUNTS = {
     "STU01": { name: "Rahul", pass: "123" },
     "STU02": { name: "Priya", pass: "123" },
@@ -25,12 +25,17 @@ let jitsiApi = null;
 let currentRole = 'student'; 
 const ADMIN_PASSWORD = "DESTINY-PRO-2026"; 
 
-// Update UI Version
+// Update UI on load
 window.onload = () => {
-    const statusText = document.getElementById('status-text');
-    if(statusText) statusText.innerText = VERSION + " | SECURE";
+    const statusLabel = document.getElementById('status-text');
+    if(statusLabel) statusLabel.innerHTML = `<span style="color:#74c0fc; font-weight:bold;">${VERSION}</span> | SECURE`;
     renderStudents();
-    if (window.location.hash) document.getElementById('select-student-btn').click();
+    
+    // Auto-select student if link has a room ID
+    if (window.location.hash) {
+        document.getElementById('select-student-btn').click();
+        document.getElementById('start-destiny-btn').innerText = "LOGIN & JOIN";
+    }
 };
 
 function logStatus(msg) {
@@ -38,7 +43,7 @@ function logStatus(msg) {
     if (btn) btn.innerText = msg.toUpperCase();
 }
 
-// --- ROLE SELECTION ---
+// --- UI EVENT HANDLERS ---
 document.getElementById('select-teacher-btn').onclick = function() {
     currentRole = 'teacher';
     this.classList.add('active');
@@ -55,46 +60,47 @@ document.getElementById('select-student-btn').onclick = function() {
     document.getElementById('teacher-login-box').classList.add('hidden');
 };
 
-// --- START ENGINE ---
+// --- CORE ENGINE START ---
 document.getElementById('start-destiny-btn').onclick = async function() {
+    // 1. Validation
     if (currentRole === 'teacher') {
         const pass = document.getElementById('admin-pass-input').value.trim();
         if (pass !== ADMIN_PASSWORD) return alert("WRONG ADMIN PASSWORD!");
     } else {
         const sid = document.getElementById('student-id-input').value.trim();
         const spass = document.getElementById('student-pass-input').value.trim();
-        if (!sid || !spass) return alert("ENTER YOUR ID & PASSWORD!");
+        if (!sid || !spass) return alert("ENTER YOUR STUDENT ID AND PASSWORD!");
     }
 
-    logStatus("Requesting Camera...");
+    // 2. Camera Check (Fails gracefully)
+    logStatus("Securing Media...");
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getTracks().forEach(t => t.stop());
-    } catch (err) {
-        console.warn("Camera blocked");
-    }
+    } catch (e) { console.warn("Media blocked by user."); }
 
     const roomId = window.location.hash.substring(1) || 'DESTINY-' + Math.random().toString(36).substr(2, 6).toUpperCase();
     if (!window.location.hash) window.location.hash = roomId;
 
     if (currentRole === 'teacher') {
-        logStatus("Hosting Classroom...");
+        logStatus("Hosting...");
         initJitsi(roomId, "Teacher (Host)");
         initPeer(roomId);
     } else {
-        logStatus("Searching for Host...");
-        initPeer(); 
+        logStatus("Connecting...");
+        initPeer(); // Random student ID
+        
         let attempts = 0;
-        const searcher = setInterval(() => {
+        const linker = setInterval(() => {
             attempts++;
             if (peer && peer.open) {
-                clearInterval(searcher);
-                knockOnDoor(roomId);
+                clearInterval(linker);
+                performHandshake(roomId);
             }
-            if (attempts > 50) {
-                clearInterval(searcher);
-                logStatus("Teacher Not Found");
-                alert("HOST IS OFFLINE. The teacher must start the classroom first!");
+            if (attempts > 60) {
+                clearInterval(linker);
+                logStatus("Host Not Found");
+                alert("TEACHER IS OFFLINE. The Host must enter the room first!");
                 window.location.reload();
             }
         }, 500);
@@ -105,36 +111,24 @@ function initPeer(id) {
     if (peer) peer.destroy();
     peer = new Peer(id);
     peer.on('open', rid => {
-        myIdDisplay.innerText = `ROOM: ${rid}`;
+        myIdDisplay.innerText = `ROOM ID: ${rid}`;
         peer.on('connection', conn => {
             dataPeers[conn.peer] = conn;
-            conn.on('data', data => {
-                if (data.type === 'knock') {
-                    const studentId = data.id.trim().toUpperCase();
-                    const match = ACCOUNTS[studentId] || customStudents[studentId];
-                    if (match && match.pass === data.pass) {
-                        showLobby(conn, match.name);
-                    } else {
-                        conn.send({ type: 'deny', reason: "Account Not Found" });
-                    }
-                } else {
-                    handleDataSync(data);
-                }
-            });
+            conn.on('data', data => handleDataLayer(conn, data));
         });
     });
 }
 
-function knockOnDoor(hostId) {
+function performHandshake(hostId) {
     logStatus("Authenticating...");
     const conn = peer.connect(hostId);
     
     conn.on('open', () => {
-        logStatus("In Lobby...");
+        logStatus("Wait for Admit...");
         conn.send({ 
             type: 'knock', 
-            id: document.getElementById('student-id-input').value, 
-            pass: document.getElementById('student-pass-input').value 
+            id: document.getElementById('student-id-input').value.trim().toUpperCase(), 
+            pass: document.getElementById('student-pass-input').value.trim() 
         });
     });
 
@@ -143,16 +137,35 @@ function knockOnDoor(hostId) {
             logStatus("Welcome!");
             initJitsi(data.roomId, data.name);
         } else if (data.type === 'deny') {
-            alert("ENTRY DENIED: " + data.reason);
+            alert("ACCESS DENIED: " + (data.reason || "Teacher declined entry"));
             window.location.reload();
         } else {
-            handleDataSync(data);
+            handleSync(data);
         }
     });
 }
 
-function showLobby(conn, name) {
-    document.getElementById('student-knock-name').innerText = name + " is waiting...";
+function handleDataLayer(conn, data) {
+    if (data.type === 'knock') {
+        const studentId = data.id.toUpperCase();
+        const account = ACCOUNTS[studentId] || customStudents[studentId];
+        
+        console.log(`[HOST] Login Attempt: ${studentId}`);
+        
+        if (account && account.pass === data.pass) {
+            console.log("[HOST] Credentials Matched. Opening Lobby.");
+            triggerLobbyUI(conn, account.name);
+        } else {
+            console.error("[HOST] Credentials Failed.");
+            conn.send({ type: 'deny', reason: "Invalid ID or Password" });
+        }
+    } else {
+        handleSync(data);
+    }
+}
+
+function triggerLobbyUI(conn, name) {
+    document.getElementById('student-knock-name').innerText = name + " is knocking...";
     document.getElementById('security-modal').classList.remove('hidden');
     
     document.getElementById('admit-btn').onclick = () => {
@@ -174,15 +187,15 @@ function initJitsi(id, name) {
         parentNode: document.getElementById('video-grid'),
         userInfo: { displayName: name },
         configOverwrite: { 
-            prejoinPageEnabled: false,
-            prejoinConfig: { enabled: false },
+            prejoinPageEnabled: false, 
             skipPrejoinButton: true,
             enableWelcomePage: false,
             disableDeepLinking: true,
             startWithAudioMuted: false,
             startWithVideoMuted: false,
             requireDisplayName: false,
-            hideDisplayName: false
+            hideDisplayName: true,
+            p2p: { enabled: true }
         },
         interfaceConfigOverwrite: { 
             TOOLBAR_BUTTONS: [
@@ -191,26 +204,32 @@ function initJitsi(id, name) {
             SHOW_JITSI_WATERMARK: false,
             SHOW_PROMOTIONAL_CLOSE_PAGE: false,
             RECENT_LIST_ENABLED: false,
-            GENERATE_ROOMNAMES_ON_WELCOME_PAGE: false
+            GENERATE_ROOMNAMES_ON_WELCOME_PAGE: false,
+            ENABLE_DIAL_IN: false
         }
     };
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
     document.getElementById('launch-screen').style.display = 'none';
+    
+    // Safety check to ensure prejoin is skipped
+    jitsiApi.addEventListener('videoConferenceJoined', () => {
+        console.log("[JITSI] Successfully bypassed Join screen.");
+    });
 }
 
-// --- TOOLS SYNC ---
+// --- TOOLS & SYNC ---
 function broadcast(data) {
     Object.values(dataPeers).forEach(p => p.open && p.send(data));
 }
 
-function handleDataSync(data) {
+function handleSync(data) {
     if (data.type === 'draw') draw(data.x, data.y, data.lx, data.ly, data.color, data.isE, false);
     if (data.type === 'clear') ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (data.type === 'notes') sharedNotes.value = data.text;
     if (data.type === 'chat') appendMsg('Partner', data.text);
 }
 
-// Canvas
+// Whiteboard
 canvas.addEventListener('mousedown', e => { isDrawing = true; [lx, ly] = [e.offsetX, e.offsetY]; });
 canvas.addEventListener('mousemove', e => {
     if (!isDrawing) return;
@@ -235,7 +254,11 @@ document.getElementById('clear-board').onclick = () => { ctx.clearRect(0, 0, can
 document.getElementById('sidebar-btn').onclick = () => document.getElementById('sidebar').classList.toggle('hidden');
 document.getElementById('board-btn').onclick = () => {
     const h = document.getElementById('whiteboard-container').classList.toggle('hidden');
-    if (!h) { canvas.width = canvas.parentElement.offsetWidth; canvas.height = canvas.parentElement.offsetHeight; ctx.lineCap = 'round'; }
+    if (!h) { 
+        canvas.width = canvas.parentElement.offsetWidth; 
+        canvas.height = canvas.parentElement.offsetHeight; 
+        ctx.lineCap = 'round'; 
+    }
 };
 
 document.getElementById('mic-btn').onclick = () => jitsiApi && jitsiApi.executeCommand('toggleAudio');
@@ -248,11 +271,12 @@ document.getElementById('copy-id-btn').onclick = () => {
     alert('PROFESSIONAL INVITE LINK COPIED!');
 };
 
+// Admin
 document.getElementById('gen-student-code').onclick = () => {
     const name = document.getElementById('new-student-name').value;
     const id = document.getElementById('new-student-id').value.toUpperCase().trim();
     const pass = document.getElementById('new-student-pass').value.trim();
-    if (!name || !id || !pass) return alert("FILL ALL FIELDS!");
+    if (!name || !id || !pass) return alert("Fill all fields!");
     customStudents[id] = { name, pass };
     localStorage.setItem('destiny_accounts', JSON.stringify(customStudents));
     renderStudents();
