@@ -60,6 +60,9 @@ document.getElementById('select-student-btn').onclick = function() {
 
 // --- START ENGINE ---
 document.getElementById('start-destiny-btn').onclick = async function() {
+    const btn = this;
+    if (btn.disabled) return; // Prevent double-clicks
+
     if (currentRole === 'teacher') {
         const pass = document.getElementById('admin-pass-input').value.trim();
         if (pass !== ADMIN_PASSWORD) return alert("WRONG ADMIN PASSWORD!");
@@ -69,33 +72,37 @@ document.getElementById('start-destiny-btn').onclick = async function() {
         if (!sid || !spass) return alert("ENTER ID & PASSWORD!");
     }
 
-    setStatus("Checking Media...");
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        stream.getTracks().forEach(t => t.stop());
-    } catch (err) { console.warn("Camera blocked"); }
-
+    btn.disabled = true;
     const roomId = window.location.hash.substring(1) || 'ROOM-' + Math.random().toString(36).substr(2, 6).toUpperCase();
     if (!window.location.hash) window.location.hash = roomId;
 
     if (currentRole === 'teacher') {
+        setStatus("Media Check...");
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            stream.getTracks().forEach(t => t.stop());
+        } catch (err) { console.warn("Camera blocked"); }
+        
         setStatus("Starting Host...");
         initJitsi(roomId, "Teacher (Host)");
         initPeer(roomId);
     } else {
-        setStatus("Locating Host...");
-        initPeer(); 
+        setStatus("Connecting...");
+        initPeer(); // This gets a random ID for the student
+        
         let attempts = 0;
         const linker = setInterval(() => {
             attempts++;
             if (peer && peer.open) {
                 clearInterval(linker);
+                console.log("[V5.2] Student Peer Open. Knocking...");
                 knockOnHost(roomId);
             }
-            if (attempts > 60) {
+            if (attempts > 30) { // 15 seconds (500ms * 30)
                 clearInterval(linker);
+                btn.disabled = false;
                 setStatus("Host Offline");
-                alert("TEACHER IS OFFLINE. The Host must enter the room first!");
+                alert("TEACHER NOT FOUND.\n\n1. Ask Teacher to join FIRST.\n2. Ensure you are using the correct invite link.");
                 window.location.reload();
             }
         }, 500);
@@ -105,14 +112,12 @@ document.getElementById('start-destiny-btn').onclick = async function() {
 function initPeer(id) {
     if (peer) peer.destroy();
     
-    // --- RELIABLE TURN INFRASTRUCTURE ---
     const config = {
         debug: 1,
         config: {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:global.stun.twilio.com:3478' }
             ]
         }
@@ -121,20 +126,24 @@ function initPeer(id) {
     peer = new Peer(id, config);
     
     peer.on('open', rid => {
+        console.log("[V5.2] My Peer ID:", rid);
         myIdDisplay.innerText = `ID: ${rid}`;
         peer.on('connection', conn => {
+            console.log("[V5.2] Incoming connection from:", conn.peer);
             dataPeers[conn.peer] = conn;
             conn.on('data', data => handleHandshake(conn, data));
             conn.on('close', () => delete dataPeers[conn.peer]);
-            conn.on('error', () => delete dataPeers[conn.peer]);
         });
     });
 
     peer.on('error', err => {
-        console.error("Peer Error:", err.type);
+        console.error("PeerJS Error:", err.type);
+        document.getElementById('start-destiny-btn').disabled = false;
         if(err.type === 'unavailable-id') {
-            setStatus("ID Taken - Retrying...");
-            setTimeout(() => window.location.reload(), 2000);
+            alert("ID TAKEN: Another Host is in this room!");
+            window.location.reload();
+        } else if (err.type === 'network') {
+            setStatus("Network Error");
         }
     });
 }
@@ -143,22 +152,19 @@ function knockOnHost(hostId) {
     setStatus("Authenticating...");
     console.log(`[V5.2] Connecting to Host: ${hostId}`);
     
-    let conn = peer.connect(hostId, { 
-        reliable: true,
-        metadata: { version: VERSION } 
-    });
+    let conn = peer.connect(hostId, { reliable: true });
     
-    let knockTimeout = setTimeout(() => {
+    // Safety timeout for the specific handshake
+    const handshakeTimeout = setTimeout(() => {
         if (!conn.open) {
-            console.warn("[V5.2] Knock Timeout - Possible NAT Block or Host Offline.");
-            setStatus("Retrying...");
-            conn.close();
-            knockOnHost(hostId); 
+            console.error("[V5.2] Handshake Timeout");
+            setStatus("Retry Needed");
+            document.getElementById('start-destiny-btn').disabled = false;
         }
-    }, 8000);
+    }, 10000);
 
     conn.on('open', () => {
-        clearTimeout(knockTimeout);
+        clearTimeout(handshakeTimeout);
         setStatus("In Lobby...");
         const sid = document.getElementById('student-id-input').value.trim();
         const spass = document.getElementById('student-pass-input').value.trim();
@@ -167,21 +173,11 @@ function knockOnHost(hostId) {
 
     conn.on('data', data => {
         if (data.type === 'admit') {
-            setStatus("Entry Granted!");
+            setStatus("Admitted!");
             initJitsi(data.roomId, data.name);
         } else if (data.type === 'deny') {
-            setStatus("Access Denied");
-            alert("ACCESS DENIED: " + data.reason + "\nCheck your ID and Password again.");
+            alert("DENIED: " + data.reason);
             window.location.reload();
-        } else {
-            handleSync(data);
-        }
-    });
-
-    conn.on('close', () => {
-        if (currentRole === 'student' && !jitsiApi) {
-            setStatus("Disconnected");
-            setTimeout(() => knockOnHost(hostId), 3000);
         }
     });
 }
