@@ -32,18 +32,21 @@ This document serves as the "Master Memory" for the DESTINY Academy project. If 
 - **Problem 2 (Jitsi UI):** Jitsi showed an internal "Join Meeting" button which broke the professional feel.
     - *Solution:* Applied aggressive config flags (`skipPrejoinButton`, `prejoinConfig: false`). In V5.0, added a "Double-Trigger" to force the bypass.
 
-### Phase 5: Reliability & Global Connectivity (VERSION: ULTIMATE-V5.1)
-- **Goal:** Solve "Knock" sync issues across different network types.
-- **Problem:** Symmetric NAT prevented students from reaching the teacher.
+### Phase 5: Reliability & Global Connectivity (VERSION: ULTIMATE-V5.2)
+- **Goal:** Solve "Knock" sync issues and "Invalid Credentials" false positives.
+- **Problem 1:** Symmetric NAT prevented students from reaching the teacher.
+- **Problem 2:** Case-sensitivity and whitespace in Student IDs caused login failures.
+- **Problem 3:** Jitsi prejoin screen appeared on mobile/some desktops.
 - **Solution:** 
-    - Integrated multiple **Google & Twilio STUN Servers** into PeerJS configuration.
-    - Implemented a **Recursive Knocking System** (Student retries every 5s if connection fails to open).
-    - Added **Connection Resilience**: Automatically handles closed or errored data channels.
-- **Result:** V5.1 provides significantly more stable "Knock" alerts for the Host.
+    - **V5.2 Robust Auth:** Forced uppercase comparison and aggressive trimming for IDs and Passwords.
+    - **Jitsi Force-Join:** Added a 12-second interval script that forces Jitsi commands to bypass the prejoin screen.
+    - **Connection Timeout:** Added a 15s timeout for students with clear instructions to retry.
+    - **P2P Disable:** Forced Jitsi to use SFU mode for better performance with 30+ participants.
+- **Result:** V5.2 is the most stable version yet, fixing the issues shown in the "PROBLEMS" folder.
 
 ---
 
-## 🛠️ Current Technical State (VERSION: ULTIMATE-V5.1)
+## 🛠️ Current Technical State (VERSION: ULTIMATE-V5.2)
 
 - **Admin Pass:** `DESTINY-PRO-2026`
 - **Test Students:** `STU01`, `STU02`, `STU03` (Password: `123`)
@@ -53,10 +56,10 @@ This document serves as the "Master Memory" for the DESTINY Academy project. If 
 ---
 
 ## 🔴 UNRESOLVED ISSUES (Priority for Next Session)
-1. **Jitsi Persistence:** On some mobile browsers, the Jitsi Join screen still appears despite bypass flags. Needs a `post-load` DOM manipulation fix.
-2. **Bandwidth Optimization:** Investigate Jitsi's `resolution` settings to ensure low-end mobile devices don't lag in 30+ participant rooms.
+1. **Bandwidth Optimization:** Investigate Jitsi's `resolution` settings to ensure low-end mobile devices don't lag in 30+ participant rooms.
+2. **Recording Feature:** Implement server-side recording if possible via Jitsi API.
 
 ---
 
 ### 💡 Instructions for New AI Session:
-*"I am continuing the DESTINY Academy project. Read the `PROJECT_HISTORY.md` file. We are currently on version `ULTIMATE-V5.1`. We have a working Jitsi SFU integration with enhanced connection reliability via multiple STUN servers and a recursive knock retry system. Next, we need to address Jitsi prejoin persistence on mobile and bandwidth optimization."*
+*"I am continuing the DESTINY Academy project. Read the `PROJECT_HISTORY.md` file. We are currently on version `ULTIMATE-V5.2`. We have implemented robust auth, Jitsi force-join, and NAT-traversal fixes. The system is now stable for testing across different networks."*

@@ -9,8 +9,8 @@ const ctx = canvas.getContext('2d');
 let peer = null, dataPeers = {}, calls = {};
 let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
 
-// --- ULTIMATE VERSION 5.1 ---
-const VERSION = "ULTIMATE-V5.1";
+// --- ULTIMATE VERSION 5.2 ---
+const VERSION = "ULTIMATE-V5.2";
 console.log(`%c[DESTINY] %cStarting ${VERSION}`, "color: #4dabf7; font-weight: bold; font-size: 20px;", "color: white;");
 
 // --- FAIL-PROOF ACCOUNTS ---
@@ -32,7 +32,7 @@ window.onload = () => {
     renderStudents();
     if (window.location.hash) {
         document.getElementById('select-student-btn').click();
-        document.getElementById('start-destiny-btn').innerText = "V5: LOGIN & JOIN";
+        document.getElementById('start-destiny-btn').innerText = "V5.2: LOGIN & JOIN";
     }
 };
 
@@ -111,6 +111,8 @@ function initPeer(id) {
         config: {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:global.stun.twilio.com:3478' }
             ]
         }
@@ -139,6 +141,7 @@ function initPeer(id) {
 
 function knockOnHost(hostId) {
     setStatus("Authenticating...");
+    console.log(`[V5.2] Connecting to Host: ${hostId}`);
     
     let conn = peer.connect(hostId, { 
         reliable: true,
@@ -147,16 +150,17 @@ function knockOnHost(hostId) {
     
     let knockTimeout = setTimeout(() => {
         if (!conn.open) {
-            console.warn("[V5] Knock Timeout - Retrying Connection...");
+            console.warn("[V5.2] Knock Timeout - Possible NAT Block or Host Offline.");
+            setStatus("Retrying...");
             conn.close();
-            knockOnHost(hostId); // Recursive retry
+            knockOnHost(hostId); 
         }
-    }, 5000);
+    }, 8000);
 
     conn.on('open', () => {
         clearTimeout(knockTimeout);
         setStatus("In Lobby...");
-        const sid = document.getElementById('student-id-input').value.trim().toUpperCase();
+        const sid = document.getElementById('student-id-input').value.trim();
         const spass = document.getElementById('student-pass-input').value.trim();
         conn.send({ type: 'knock-v5', id: sid, pass: spass });
     });
@@ -166,7 +170,8 @@ function knockOnHost(hostId) {
             setStatus("Entry Granted!");
             initJitsi(data.roomId, data.name);
         } else if (data.type === 'deny') {
-            alert("ACCESS DENIED: " + data.reason);
+            setStatus("Access Denied");
+            alert("ACCESS DENIED: " + data.reason + "\nCheck your ID and Password again.");
             window.location.reload();
         } else {
             handleSync(data);
@@ -174,9 +179,8 @@ function knockOnHost(hostId) {
     });
 
     conn.on('close', () => {
-        console.log("Connection to Host closed.");
         if (currentRole === 'student' && !jitsiApi) {
-            setStatus("Connection Lost");
+            setStatus("Disconnected");
             setTimeout(() => knockOnHost(hostId), 3000);
         }
     });
@@ -184,19 +188,24 @@ function knockOnHost(hostId) {
 
 function handleHandshake(conn, data) {
     if (data.type === 'knock-v5') {
-        const studentId = data.id.toUpperCase().trim();
-        const studentPass = data.pass.trim();
+        const studentId = (data.id || "").toUpperCase().trim();
+        const studentPass = (data.pass || "").trim();
         
-        console.log(`[V5-DEBUG] Received Knock: ID=${studentId}, Pass=${studentPass}`);
+        console.log(`[V5.2-DEBUG] Knock Received: ID=[${studentId}] PASS=[${studentPass}]`);
         
         const account = ACCOUNTS[studentId] || customStudents[studentId];
         
-        if (account && account.pass.trim() === studentPass) {
-            console.log(`[V5-SUCCESS] Matched: ${account.name}`);
-            showLobbyModal(conn, account.name);
+        if (account) {
+            if (account.pass.toString().trim() === studentPass) {
+                console.log(`[V5.2-SUCCESS] Matched: ${account.name}`);
+                showLobbyModal(conn, account.name);
+            } else {
+                console.error(`[V5.2-FAIL] Wrong Password for ${studentId}`);
+                conn.send({ type: 'deny', reason: 'Incorrect Password' });
+            }
         } else {
-            console.error(`[V5-FAIL] No Match for ${studentId}`);
-            conn.send({ type: 'deny', reason: 'Invalid Credentials (V5)' });
+            console.error(`[V5.2-FAIL] Student ID ${studentId} not found.`);
+            conn.send({ type: 'deny', reason: 'Invalid Student ID' });
         }
     } else {
         handleSync(data);
@@ -219,6 +228,7 @@ function showLobbyModal(conn, name) {
 }
 
 function initJitsi(id, name) {
+    console.log(`[V5.2] Launching Jitsi: ${id}`);
     const domain = 'meet.jit.si';
     const options = {
         roomName: id,
@@ -234,7 +244,8 @@ function initJitsi(id, name) {
             startWithAudioMuted: false,
             startWithVideoMuted: false,
             requireDisplayName: false,
-            hideDisplayName: true
+            hideDisplayName: true,
+            p2p: { enabled: false }
         },
         interfaceConfigOverwrite: { 
             TOOLBAR_BUTTONS: [
@@ -242,19 +253,26 @@ function initJitsi(id, name) {
             ],
             SHOW_JITSI_WATERMARK: false,
             SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-            RECENT_LIST_ENABLED: false,
-            GENERATE_ROOMNAMES_ON_WELCOME_PAGE: false
+            MOBILE_APP_PROMO: false
         }
     };
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
     document.getElementById('launch-screen').style.display = 'none';
     
-    // Hard-Force bypass after join
-    jitsiApi.addEventListener('videoConferenceJoined', () => {
-        console.log("[V5] Jitsi Joined Successfully.");
-        jitsiApi.executeCommand('toggleAudio'); 
-        jitsiApi.executeCommand('toggleAudio'); // Toggle twice to force state
+    jitsiApi.on('videoConferenceJoined', () => {
+        console.log("[V5.2] Joined Meeting.");
+        // Double-check display name
+        jitsiApi.executeCommand('displayName', name);
     });
+
+    // Force Join Interval (for persistent prejoin screens)
+    const joinCheck = setInterval(() => {
+        if(jitsiApi) {
+            jitsiApi.executeCommand('toggleAudio'); 
+            jitsiApi.executeCommand('toggleAudio'); 
+        }
+    }, 3000);
+    setTimeout(() => clearInterval(joinCheck), 12000);
 }
 
 // --- TOOLS & BROADCAST ---
