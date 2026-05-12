@@ -9,8 +9,8 @@ const ctx = canvas.getContext('2d');
 let peer = null, dataPeers = {}, calls = {};
 let isDrawing = false, lx = 0, ly = 0, tool = 'pen';
 
-// --- ULTIMATE VERSION 5.0 ---
-const VERSION = "ULTIMATE-V5.0";
+// --- ULTIMATE VERSION 5.1 ---
+const VERSION = "ULTIMATE-V5.1";
 console.log(`%c[DESTINY] %cStarting ${VERSION}`, "color: #4dabf7; font-weight: bold; font-size: 20px;", "color: white;");
 
 // --- FAIL-PROOF ACCOUNTS ---
@@ -104,21 +104,57 @@ document.getElementById('start-destiny-btn').onclick = async function() {
 
 function initPeer(id) {
     if (peer) peer.destroy();
-    peer = new Peer(id, { debug: 1 });
+    
+    // --- RELIABLE TURN INFRASTRUCTURE ---
+    const config = {
+        debug: 1,
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+        }
+    };
+
+    peer = new Peer(id, config);
+    
     peer.on('open', rid => {
         myIdDisplay.innerText = `ID: ${rid}`;
         peer.on('connection', conn => {
             dataPeers[conn.peer] = conn;
             conn.on('data', data => handleHandshake(conn, data));
+            conn.on('close', () => delete dataPeers[conn.peer]);
+            conn.on('error', () => delete dataPeers[conn.peer]);
         });
+    });
+
+    peer.on('error', err => {
+        console.error("Peer Error:", err.type);
+        if(err.type === 'unavailable-id') {
+            setStatus("ID Taken - Retrying...");
+            setTimeout(() => window.location.reload(), 2000);
+        }
     });
 }
 
 function knockOnHost(hostId) {
     setStatus("Authenticating...");
-    const conn = peer.connect(hostId, { reliable: true });
     
+    let conn = peer.connect(hostId, { 
+        reliable: true,
+        metadata: { version: VERSION } 
+    });
+    
+    let knockTimeout = setTimeout(() => {
+        if (!conn.open) {
+            console.warn("[V5] Knock Timeout - Retrying Connection...");
+            conn.close();
+            knockOnHost(hostId); // Recursive retry
+        }
+    }, 5000);
+
     conn.on('open', () => {
+        clearTimeout(knockTimeout);
         setStatus("In Lobby...");
         const sid = document.getElementById('student-id-input').value.trim().toUpperCase();
         const spass = document.getElementById('student-pass-input').value.trim();
@@ -134,6 +170,14 @@ function knockOnHost(hostId) {
             window.location.reload();
         } else {
             handleSync(data);
+        }
+    });
+
+    conn.on('close', () => {
+        console.log("Connection to Host closed.");
+        if (currentRole === 'student' && !jitsiApi) {
+            setStatus("Connection Lost");
+            setTimeout(() => knockOnHost(hostId), 3000);
         }
     });
 }

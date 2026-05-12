@@ -32,9 +32,18 @@ This document serves as the "Master Memory" for the DESTINY Academy project. If 
 - **Problem 2 (Jitsi UI):** Jitsi showed an internal "Join Meeting" button which broke the professional feel.
     - *Solution:* Applied aggressive config flags (`skipPrejoinButton`, `prejoinConfig: false`). In V5.0, added a "Double-Trigger" to force the bypass.
 
+### Phase 5: Reliability & Global Connectivity (VERSION: ULTIMATE-V5.1)
+- **Goal:** Solve "Knock" sync issues across different network types.
+- **Problem:** Symmetric NAT prevented students from reaching the teacher.
+- **Solution:** 
+    - Integrated multiple **Google & Twilio STUN Servers** into PeerJS configuration.
+    - Implemented a **Recursive Knocking System** (Student retries every 5s if connection fails to open).
+    - Added **Connection Resilience**: Automatically handles closed or errored data channels.
+- **Result:** V5.1 provides significantly more stable "Knock" alerts for the Host.
+
 ---
 
-## 🛠️ Current Technical State (VERSION: ULTIMATE-V5.0)
+## 🛠️ Current Technical State (VERSION: ULTIMATE-V5.1)
 
 - **Admin Pass:** `DESTINY-PRO-2026`
 - **Test Students:** `STU01`, `STU02`, `STU03` (Password: `123`)
@@ -44,10 +53,10 @@ This document serves as the "Master Memory" for the DESTINY Academy project. If 
 ---
 
 ## 🔴 UNRESOLVED ISSUES (Priority for Next Session)
-1. **Sync Bug:** Occasionally, the "Knock" from a student doesn't reach the Teacher's screen if they are on different network types (Symmetric NAT issue).
-2. **Jitsi Persistence:** On some mobile browsers, the Jitsi Join screen still appears despite bypass flags. Needs a `post-load` DOM manipulation fix.
+1. **Jitsi Persistence:** On some mobile browsers, the Jitsi Join screen still appears despite bypass flags. Needs a `post-load` DOM manipulation fix.
+2. **Bandwidth Optimization:** Investigate Jitsi's `resolution` settings to ensure low-end mobile devices don't lag in 30+ participant rooms.
 
 ---
 
 ### 💡 Instructions for New AI Session:
-*"I am continuing the DESTINY Academy project. Read the `PROJECT_HISTORY.md` file. We are currently on version `ULTIMATE-V5.0`. We have a working Jitsi SFU integration, but we are facing a persistent student authentication sync issue between the Host and Student PeerJS connections."*
+*"I am continuing the DESTINY Academy project. Read the `PROJECT_HISTORY.md` file. We are currently on version `ULTIMATE-V5.1`. We have a working Jitsi SFU integration with enhanced connection reliability via multiple STUN servers and a recursive knock retry system. Next, we need to address Jitsi prejoin persistence on mobile and bandwidth optimization."*
